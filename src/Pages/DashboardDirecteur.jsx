@@ -148,6 +148,7 @@ export default function DashboardDirecteur({ profil }) {
    * dans le filtre même si elle n'a encore aucune activité.
    */
   const [secretairesInscrits, setSecretairesInscrits] = useState([]);
+  const [errorLoading, setErrorLoading] = useState(null);
 
   const [loading, setLoading] = useState(() =>
     Boolean(localStorage.getItem("token")),
@@ -204,6 +205,7 @@ export default function DashboardDirecteur({ profil }) {
     async function chargerDonnees() {
       try {
         setLoading(true);
+        setErrorLoading(null);
 
         const headers = {
           Authorization: `Bearer ${token}`,
@@ -368,6 +370,9 @@ export default function DashboardDirecteur({ profil }) {
         console.error(
           "Erreur lors du chargement des données directeur :",
           error,
+        );
+        setErrorLoading(
+          "Impossible de charger les données. Veuillez vérifier la connexion au serveur et à la base de données."
         );
       } finally {
         setLoading(false);
@@ -897,26 +902,50 @@ export default function DashboardDirecteur({ profil }) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
+      {/* BANNÈRE D'ERREUR DE CHARGEMENT */}
+      {errorLoading && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-red-500 text-lg">⚠️</span>
+            <p className="text-sm font-semibold text-red-700">{errorLoading}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+
       {/* ======================================================
           EN-TÊTE
       ====================================================== */}
 
       <header className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
-        <div>
-          <span className="bg-purple-50 text-purple-600 font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
-            Supervision Direction
-          </span>
-
-          <h1 className="text-2xl font-black text-gray-800 mt-1">
-            Tableau de Bord Global
-          </h1>
-
-          <p className="text-sm text-gray-500">
-            Connecté en tant que{" "}
-            <span className="font-semibold text-gray-700">
-              {profil?.username || "Direction Générale"}
+        <div className="flex items-center gap-4">
+          <img
+            src="/Logo.jpeg"
+            alt="Logo Entreprise"
+            className="w-12 h-12 rounded-xl object-contain border border-gray-100 p-0.5"
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <div>
+            <span className="bg-purple-50 text-purple-600 font-bold text-[10px] uppercase px-2.5 py-1 rounded-full">
+              Supervision Direction
             </span>
-          </p>
+
+            <h1 className="text-2xl font-black text-gray-800 mt-1">
+              Tableau de Bord Global
+            </h1>
+
+            <p className="text-sm text-gray-500">
+              Connecté en tant que{" "}
+              <span className="font-semibold text-gray-700">
+                {profil?.username || "Direction Générale"}
+              </span>
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-col lg:items-end gap-4">

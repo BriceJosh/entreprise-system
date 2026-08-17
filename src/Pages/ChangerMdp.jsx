@@ -37,10 +37,20 @@ export default function ChangerMdp() {
       const data = await res.json();
 
       if (res.ok) {
+        try {
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            parsed.doit_changer_mdp = false;
+            localStorage.setItem('user', JSON.stringify(parsed));
+          }
+        } catch (e) {
+          console.error(e);
+        }
         setMessage('Mot de passe mis à jour avec succès ! Redirection...');
         setTimeout(() => {
           navigate('/');
-        }, 2000);
+        }, 1500);
       } else {
         setErreur(data.message || 'Erreur lors du changement de mot de passe.');
       }

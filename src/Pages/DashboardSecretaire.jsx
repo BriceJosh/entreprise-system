@@ -18,15 +18,6 @@ const BACKEND_URL =
   'http://localhost:5000';
 
 export default function DashboardSecretaire({ profil }) {
-  const [stocks, setStocks] = useState([]);
-  const [historiqueActivites, setHistoriqueActivites] = useState([]);
-  const [loading, setLoading] = useState(() => Boolean(token && currentSiteId));
-
-  const flags = useMemo(
-    () => getPermissionFlags(profil),
-    [profil]
-  );
-
   const token = localStorage.getItem('token');
 
   const currentSiteId =
@@ -38,6 +29,15 @@ export default function DashboardSecretaire({ profil }) {
     profil?._id ||
     profil?.id ||
     '';
+
+  const flags = useMemo(
+    () => getPermissionFlags(profil),
+    [profil]
+  );
+
+  const [stocks, setStocks] = useState([]);
+  const [historiqueActivites, setHistoriqueActivites] = useState([]);
+  const [loading, setLoading] = useState(() => Boolean(token && currentSiteId));
 
   /*
    * =========================================================
@@ -383,18 +383,24 @@ export default function DashboardSecretaire({ profil }) {
 
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
 
-          <div>
+          <div className="flex items-center gap-3">
+            <img
+              src="/Logo.jpeg"
+              alt="Logo Entreprise"
+              className="w-10 h-10 rounded-xl object-contain border border-gray-100 p-0.5"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <div>
+              <h1 className="text-xl font-black text-gray-900">
+                Tableau de bord
+              </h1>
 
-            <h1 className="text-xl font-black text-gray-900">
-              Tableau de bord
-            </h1>
-
-            <p className="text-xs text-gray-400">
-              {profil?.username || 'Secrétaire'}
-              {' · '}
-              {profil?.poste || 'services'}
-            </p>
-
+              <p className="text-xs text-gray-400">
+                {profil?.username || 'Secrétaire'}
+                {' · '}
+                {profil?.poste || 'services'}
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

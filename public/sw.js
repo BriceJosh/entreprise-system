@@ -6,6 +6,7 @@ const ASSETS_TO_CACHE = [
   "/favicon.svg",
   "/pwa-192x192.svg",
   "/pwa-512x512.svg",
+  "/Logo.jpeg",
 ];
 
 self.addEventListener("install", (event) => {

@@ -71,11 +71,17 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-8 space-y-6">
-        
+
         {/* En-tête */}
         <div className="text-center space-y-2">
+          <img
+            src="/Logo.jpeg"
+            alt="Logo Entreprise System"
+            className="w-20 h-20 mx-auto rounded-2xl object-contain shadow-sm border border-gray-100 p-1 mb-2"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
           <span className="bg-emerald-50 text-emerald-700 font-bold text-[11px] uppercase px-3 py-1 rounded-full tracking-wider">
-            Espace Commercial Le Rocher
+            Entreprise System - Supervision &amp; Caisse
           </span>
           <h1 className="text-2xl font-black text-gray-800 mt-2">Connexion au Système</h1>
           <p className="text-xs text-gray-500">Accédez à votre espace de gestion personnalisé</p>

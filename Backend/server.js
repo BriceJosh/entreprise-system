@@ -109,9 +109,38 @@ io.on('connection', (socket) => {
 // =============================================================
 // MONGODB & CHANGE STREAMS
 // =============================================================
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ Connecté à MongoDB Atlas avec succès !'))
-  .catch((err) => console.error('❌ Erreur de connexion MongoDB :', err));
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000
+    });
+    console.log('✅ Connecté à MongoDB Atlas avec succès !');
+  } catch (err) {
+    console.error('❌ Erreur de connexion MongoDB :', err.message);
+    console.log('🔄 Nouvelle tentative de connexion à MongoDB dans 5 secondes...');
+    setTimeout(connectDB, 5000);
+  }
+};
+
+connectDB();
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️ Connexion MongoDB perdue. Reconnexion...');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Erreur MongoDB :', err.message);
+});
+
+// Middleware pour vérifier la connexion à la base de données
+app.use((req, res, next) => {
+  if (mongoose.connection.readyState !== 1 && !req.path.startsWith('/api/health')) {
+    return res.status(503).json({
+      message: "La base de données est actuellement indisponible. Veuillez réessayer dans quelques instants."
+    });
+  }
+  next();
+});
 
 mongoose.connection.once('open', () => {
   console.log('✅ Activation des Change Streams pour le temps réel...');
@@ -374,9 +403,18 @@ app.get('/api/users/secretaires', verifyToken, async (req, res) => {
   }
 });
 
-app.post('/api/users/change-password', verifyToken, async (req, res) => {
+const handleChangePassword = async (req, res) => {
   try {
-    const { ancienMotDePasse, nouveauMotDePasse } = req.body;
+    const userId = req.user?.userId || req.user?.id || req.user?._id;
+    const ancienMotDePasse =
+      req.body.ancienMotDePasse ||
+      req.body.ancienMdp ||
+      req.body.oldPassword;
+    const nouveauMotDePasse =
+      req.body.nouveauMotDePasse ||
+      req.body.nouveauMdp ||
+      req.body.nouveauPassword ||
+      req.body.newPassword;
 
     if (!nouveauMotDePasse || String(nouveauMotDePasse).length < 6) {
       return res.status(400).json({
@@ -384,15 +422,23 @@ app.post('/api/users/change-password', verifyToken, async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'Utilisateur non trouvé.' });
     }
 
-    const isMatch = await bcrypt.compare(ancienMotDePasse, user.password);
-    if (!isMatch) {
+    // Si l'utilisateur doit obligatoirement changer de mot de passe (première connexion),
+    // ou s'il a fourni l'ancien mot de passe, on le vérifie s'il est renseigné.
+    if (ancienMotDePasse) {
+      const isMatch = await bcrypt.compare(ancienMotDePasse, user.password);
+      if (!isMatch) {
+        return res.status(400).json({
+          message: "L'ancien mot de passe est incorrect."
+        });
+      }
+    } else if (!user.doit_changer_mdp) {
       return res.status(400).json({
-        message: "L'ancien mot de passe est incorrect."
+        message: "L'ancien mot de passe est obligatoire."
       });
     }
 
@@ -400,14 +446,28 @@ app.post('/api/users/change-password', verifyToken, async (req, res) => {
     user.doit_changer_mdp = false;
     await user.save();
 
-    res.json({ message: 'Mot de passe modifié avec succès !' });
+    const userSansMdp = await User.findById(userId)
+      .select('-password')
+      .populate('site_id', 'nom ville');
+
+    res.json({
+      message: 'Mot de passe modifié avec succès !',
+      user: userSansMdp
+    });
   } catch (error) {
     console.error('Erreur changement mdp :', error);
     res.status(500).json({
       message: 'Erreur lors de la modification du mot de passe.'
     });
   }
-});
+};
+
+app.post('/api/users/change-password', verifyToken, handleChangePassword);
+app.put('/api/users/change-password', verifyToken, handleChangePassword);
+app.post('/api/auth/changer-mdp', verifyToken, handleChangePassword);
+app.put('/api/auth/changer-mdp', verifyToken, handleChangePassword);
+app.post('/api/auth/change-password', verifyToken, handleChangePassword);
+app.put('/api/auth/change-password', verifyToken, handleChangePassword);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', () => {

@@ -10,7 +10,7 @@ export default function PremiereConnexion() {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
 
-  const { token, login } = useContext(AuthContext);
+  const { token, updateUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -47,12 +47,15 @@ export default function PremiereConnexion() {
       }
 
       // Mise à jour de l'utilisateur dans le contexte (doit_changer_mdp passe à false)
-      login(data.user, token);
+      if (updateUser) {
+        updateUser(data.user || { doit_changer_mdp: false });
+      }
 
       // Redirection définitive vers le bon dashboard selon le rôle
-      if (data.user.role === 'directeur') {
+      const userRole = data.user?.role;
+      if (userRole === 'directeur' || userRole === 'admin') {
         navigate('/dashboard-directeur');
-      } else if (data.user.role === 'secretaire') {
+      } else {
         navigate('/dashboard-secretaire');
       }
 

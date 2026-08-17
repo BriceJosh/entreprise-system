@@ -1,11 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import ChangerMdp from './pages/ChangerMdp';
+import Login from './Pages/Login';
+import ChangerMdp from './Pages/ChangerMdp';
 import ProtectedRoute from './components/ProtectedRoute';
-import DashboardDirecteur from './pages/DashboardDirecteur';
-import DashboardSecretaire from './pages/DashboardSecretaire';
-import Profil from './pages/Profil';
+import DashboardDirecteur from './Pages/DashboardDirecteur';
+import DashboardSecretaire from './Pages/DashboardSecretaire';
+import Profil from './Pages/Profil';
 import Historique from './Pages/Historique';
 
 // Composant de repli en cas d'accès non autorisé (403)
@@ -16,8 +16,8 @@ const NonAutorise = () => (
     <p className="text-sm text-gray-500 max-w-md mb-6">
       Vous n'avez pas les permissions nécessaires pour accéder à cette page.
     </p>
-    <Link 
-      to="/login" 
+    <Link
+      to="/login"
       className="bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider hover:bg-emerald-700 transition-all shadow-sm"
     >
       Retour à la connexion
@@ -85,33 +85,33 @@ export default function App() {
           <Route path="/login" element={<Login />} />
 
           {/* Route privée : Changement de mot de passe obligatoire */}
-          <Route 
-            path="/changer-mdp" 
+          <Route
+            path="/changer-mdp"
             element={
               <ProtectedRoute allowPendingPasswordChange={true}>
                 <ChangerMdpWrapper />
               </ProtectedRoute>
-            } 
+            }
           />
 
           {/* Route privée : Réservée au Directeur / Admin */}
-          <Route 
-            path="/dashboard-directeur" 
+          <Route
+            path="/dashboard-directeur"
             element={
               <ProtectedRoute allowedRoles={['directeur', 'admin']}>
                 <DashboardDirecteurWrapper />
               </ProtectedRoute>
-            } 
+            }
           />
 
           {/* Route privée : Accessible à tous les utilisateurs connectés */}
-          <Route 
-            path="/profil" 
+          <Route
+            path="/profil"
             element={
               <ProtectedRoute>
                 <ProfilWrapper />
               </ProtectedRoute>
-            } 
+            }
           />
 
           <Route
@@ -124,18 +124,18 @@ export default function App() {
           />
 
           {/* Route privée : Réservée aux Secrétaires / Caissiers */}
-          <Route 
-            path="/dashboard-secretaire" 
+          <Route
+            path="/dashboard-secretaire"
             element={
               <ProtectedRoute allowedRoles={['secretaire', 'caissier']}>
                 <DashboardSecretaireWrapper />
               </ProtectedRoute>
-            } 
+            }
           />
 
           {/* Page d'accès refusé */}
           <Route path="/non-autorise" element={<NonAutorise />} />
-          
+
           {/* Redirection par défaut pour les URLs non reconnues */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
