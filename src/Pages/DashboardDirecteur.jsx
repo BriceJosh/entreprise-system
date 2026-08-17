@@ -2,10 +2,128 @@ import { useState, useEffect, useMemo } from "react";
 import io from "socket.io-client";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
+import InstallPwaButton from "../components/InstallPwaButton";
 import SupervisionCaissesDirecteur from "../components/SupervisionCaissesDirecteur";
 import { formaterQuantiteVente, formaterStock } from "../utils/formatStock";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
+/**
+ * Transforme n'importe quelle représentation d'un ID
+ * MongoDB en chaîne comparable.
+ */
+const extractId = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "object") {
+    if (value.$oid) {
+      return String(value.$oid);
+    }
+
+    if (value._id !== undefined && value._id !== null) {
+      return String(value._id);
+    }
+
+    if (value.id !== undefined && value.id !== null) {
+      return String(value.id);
+    }
+  }
+
+  return String(value);
+};
+
+/**
+ * Supprime les doublons ayant le même identifiant.
+ */
+const dedoublonnerParId = (liste) => {
+  if (!Array.isArray(liste)) {
+    return [];
+  }
+
+  const dejaVus = new Set();
+
+  return liste.filter((item) => {
+    const id = extractId(item?._id);
+
+    if (id) {
+      if (dejaVus.has(id)) {
+        return false;
+      }
+
+      dejaVus.add(id);
+      return true;
+    }
+
+    return true;
+  });
+};
+
+const obtenirIdSite = (item) => {
+  if (!item) return null;
+
+  const candidats = [
+    item.site_id,
+    item.siteId,
+    item.site,
+    item.agence_id,
+    item.agenceId,
+    item.agence,
+  ];
+
+  for (const candidat of candidats) {
+    const id = extractId(candidat);
+
+    if (id) {
+      return id;
+    }
+  }
+
+  return null;
+};
+
+const getMontantAbsolu = (item) => {
+  if (!item) return 0;
+
+  let valeur =
+    item.montant_total ??
+    item.montant ??
+    item.prix ??
+    item.somme ??
+    item.valeur;
+
+  if (valeur === undefined || valeur === null) {
+    const quantite = Number(item.quantite ?? 1);
+    const prixUnitaire = Number(item.prix_unitaire ?? 0);
+
+    valeur = quantite * prixUnitaire;
+  }
+
+  const montant = Number(valeur);
+
+  if (!Number.isFinite(montant)) {
+    return 0;
+  }
+
+  return Math.abs(montant);
+};
+
+const obtenirDateItem = (item) => {
+  if (!item) {
+    return null;
+  }
+
+  const dateBrute = item.createdAt || item.date || item.updatedAt || null;
+
+  if (!dateBrute) {
+    return null;
+  }
+
+  const date = new Date(dateBrute);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 export default function DashboardDirecteur({ profil }) {
   const [ongletActif, setOngletActif] = useState("vue_globale");
@@ -38,112 +156,6 @@ export default function DashboardDirecteur({ profil }) {
   const token = localStorage.getItem("token");
 
   /**
-   * ============================================================
-   * UTILITAIRES
-   * ============================================================
-   */
-
-  /**
-   * Transforme n'importe quelle représentation d'un ID
-   * MongoDB en chaîne comparable.
-   */
-  const extractId = (value) => {
-    if (value === null || value === undefined) {
-      return null;
-    }
-
-    if (typeof value === "object") {
-      if (value.$oid) {
-        return String(value.$oid);
-      }
-
-      if (value._id !== undefined && value._id !== null) {
-        return String(value._id);
-      }
-
-      if (value.id !== undefined && value.id !== null) {
-        return String(value.id);
-      }
-    }
-
-    return String(value);
-  };
-
-  /**
-   * ============================================================
-   * DÉDUPLICATION
-   * ============================================================
-   */
-
-  /**
-   * Supprime les doublons ayant le même identifiant.
-   *
-   * Très important pour éviter qu'un événement Socket.io
-   * ajoute deux fois exactement la même opération.
-   */
-  const dedoublonnerParId = (liste) => {
-    if (!Array.isArray(liste)) {
-      return [];
-    }
-
-    const dejaVus = new Set();
-
-    return liste.filter((item) => {
-      const id = extractId(item?._id);
-
-      /**
-       * Si l'élément possède un _id MongoDB,
-       * on utilise cet ID comme clé unique.
-       */
-      if (id) {
-        if (dejaVus.has(id)) {
-          return false;
-        }
-
-        dejaVus.add(id);
-        return true;
-      }
-
-      /**
-       * Cas exceptionnel : élément sans _id.
-       *
-       * On ne supprime pas automatiquement les éléments
-       * sans ID afin d'éviter de supprimer de vraies opérations.
-       */
-      return true;
-    });
-  };
-
-  /**
-   * ============================================================
-   * SITE
-   * ============================================================
-   */
-
-  const obtenirIdSite = (item) => {
-    if (!item) return null;
-
-    const candidats = [
-      item.site_id,
-      item.siteId,
-      item.site,
-      item.agence_id,
-      item.agenceId,
-      item.agence,
-    ];
-
-    for (const candidat of candidats) {
-      const id = extractId(candidat);
-
-      if (id) {
-        return id;
-      }
-    }
-
-    return null;
-  };
-
-  /**
    * Retourne le nom du site correspondant à une valeur.
    */
   const obtenirNomSite = (siteFieldValue) => {
@@ -170,64 +182,6 @@ export default function DashboardDirecteur({ profil }) {
     const siteTrouve = sites.find((site) => extractId(site._id) === idPropre);
 
     return siteTrouve?.nom || "Site inconnu";
-  };
-
-  /**
-   * ============================================================
-   * MONTANTS
-   * ============================================================
-   */
-
-  const getMontantAbsolu = (item) => {
-    if (!item) return 0;
-
-    let valeur =
-      item.montant_total ??
-      item.montant ??
-      item.prix ??
-      item.somme ??
-      item.valeur;
-
-    /**
-     * Si aucun montant direct,
-     * calcul quantité × prix unitaire.
-     */
-    if (valeur === undefined || valeur === null) {
-      const quantite = Number(item.quantite ?? 1);
-      const prixUnitaire = Number(item.prix_unitaire ?? 0);
-
-      valeur = quantite * prixUnitaire;
-    }
-
-    const montant = Number(valeur);
-
-    if (!Number.isFinite(montant)) {
-      return 0;
-    }
-
-    return Math.abs(montant);
-  };
-
-  /**
-   * ============================================================
-   * DATES
-   * ============================================================
-   */
-
-  const obtenirDateItem = (item) => {
-    if (!item) {
-      return null;
-    }
-
-    const dateBrute = item.createdAt || item.date || item.updatedAt || null;
-
-    if (!dateBrute) {
-      return null;
-    }
-
-    const date = new Date(dateBrute);
-
-    return Number.isNaN(date.getTime()) ? null : date;
   };
 
   /**
@@ -854,7 +808,6 @@ export default function DashboardDirecteur({ profil }) {
     siteSelectionne,
     secretaireSelectionnee,
     periodeFiltre,
-    sites,
   ]);
 
   /**
@@ -967,7 +920,10 @@ export default function DashboardDirecteur({ profil }) {
         </div>
 
         <div className="flex flex-col lg:items-end gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <InstallPwaButton role="directeur" />
+            <InstallPwaButton role="directeur" mobileOnly={true} />
+
             <Link
               to="/historique"
               className="bg-purple-50 text-purple-700 hover:bg-purple-100 font-bold py-2 px-4 rounded-xl text-xs uppercase"

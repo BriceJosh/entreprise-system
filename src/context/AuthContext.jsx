@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -18,35 +18,44 @@ const isTokenExpired = (token) => {
     const decoded = JSON.parse(decodedJson);
     if (!decoded.exp) return false;
     return decoded.exp * 1000 < Date.now();
-  } catch (e) {
+  } catch {
     return true;
   }
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Vérification de la session et de la validité du token au chargement
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
 
-    if (storedUser && storedToken) {
-      if (isTokenExpired(storedToken)) {
-        console.warn("Session expirée. Déconnexion automatique.");
-        logout();
-      } else {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch (e) {
-          console.error("Erreur lors de la lecture des données utilisateur :", e);
-          logout();
-        }
+    if (storedUser && storedToken && !isTokenExpired(storedToken)) {
+      try {
+        return JSON.parse(storedUser);
+      } catch (e) {
+        console.error("Erreur lors de la lecture des données utilisateur :", e);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
       }
+    } else if (storedToken && isTokenExpired(storedToken)) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
     }
-    setLoading(false);
+    return null;
+  });
+
+  // Déconnexion
+  const logout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
   }, []);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken && isTokenExpired(storedToken)) {
+      logout();
+    }
+  }, [logout]);
 
   // Fonction de connexion
   const login = async (email, password) => {
@@ -88,34 +97,23 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  // Déconnexion
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-  };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
-      </div>
-    );
-  }
+
+
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
+    <AuthContext.Provider
+      value={{
+        user,
         token: localStorage.getItem('token'),
         site: user?.site || null,                     // 👉 Acces direct au site : { id, nom, ville }
         role: user?.role || null,                     // 👉 Acces direct au rôle
         doitChangerMdp: user?.doit_changer_mdp || false, // 👉 Drapeau pour le changement de mdp
-        login, 
-        logout, 
-        updateUser, 
-        isAuthenticated: !!user, 
-        loading 
+        login,
+        logout,
+        updateUser,
+        isAuthenticated: !!user,
+        loading: false
       }}
     >
       {children}

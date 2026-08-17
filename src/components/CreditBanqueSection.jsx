@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 const montant = (value) => (Number(value) || 0).toLocaleString('fr-FR');
@@ -15,7 +15,7 @@ export default function CreditBanqueSection() {
   const [credit, setCredit] = useState({ fournisseur: '', designation: '', montant_total: '', reference: '', note: '' });
   const token = localStorage.getItem('token');
 
-  const charger = async () => {
+  const charger = useCallback(async () => {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -28,9 +28,11 @@ export default function CreditBanqueSection() {
     } catch (error) {
       console.error('Erreur chargement dépôts et crédits :', error);
     }
-  };
+  }, [token]);
 
-  useEffect(() => { charger(); }, [token]);
+  useEffect(() => {
+    charger();
+  }, [charger]);
 
   const poster = async (url, body, succes) => {
     const response = await fetch(`${BACKEND_URL}${url}`, {

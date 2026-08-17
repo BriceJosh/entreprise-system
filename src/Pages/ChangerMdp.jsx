@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function ChangerMdp({ profil }) {
+export default function ChangerMdp() {
   const [ancienMdp, setAncienMdp] = useState('');
   const [nouveauMdp, setNouveauMdp] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -45,6 +45,7 @@ export default function ChangerMdp({ profil }) {
         setErreur(data.message || 'Erreur lors du changement de mot de passe.');
       }
     } catch (err) {
+      console.error('Erreur lors de la modification du mot de passe :', err);
       setErreur('Erreur serveur. Veuillez réessayer.');
     } finally {
       setLoading(false);

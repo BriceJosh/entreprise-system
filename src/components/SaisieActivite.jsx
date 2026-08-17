@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 
 import {
   PERMISSIONS,
@@ -41,7 +41,7 @@ export default function SaisieActivite({
     useState(defaultType);
 
   const [serviceType, setServiceType] =
-    useState(serviceTypes[0] || '');
+    useState(() => serviceTypes[0] || '');
 
   /*
    * =========================================================
@@ -120,67 +120,7 @@ export default function SaisieActivite({
       text: ''
     });
 
-  /*
-   * =========================================================
-   * SERVICE PAR DÉFAUT
-   * =========================================================
-   */
 
-  useEffect(() => {
-    if (!serviceTypes.includes(serviceType)) {
-      setServiceType(
-        serviceTypes[0] || ''
-      );
-    }
-  }, [
-    serviceTypes.join('|'),
-    serviceType
-  ]);
-
-  /*
-   * =========================================================
-   * CHARGEMENT DU STOCK
-   * =========================================================
-   */
-
-  useEffect(() => {
-    if (
-      typeOperation === 'vente' &&
-      flags.vente
-    ) {
-      chargerStock();
-    }
-  }, [
-    typeOperation,
-    flags.vente
-  ]);
-
-  /*
-   * =========================================================
-   * TOTAL DE LA VENTE
-   * =========================================================
-   *
-   * IMPORTANT :
-   *
-   * quantité saisie × prix saisi par la secrétaire
-   *
-   * Exemple :
-   *
-   * 2 Gros
-   * Prix : 20 000
-   *
-   * Total = 40 000 FCFA
-   */
-
-  const totalVente = useMemo(
-    () =>
-      (Number(quantite) || 0) *
-      (Number(prixUnitaire) || 0),
-    [
-      quantite,
-      prixUnitaire
-    ]
-  );
 
   /*
    * =========================================================
@@ -188,7 +128,7 @@ export default function SaisieActivite({
    * =========================================================
    */
 
-  async function chargerStock() {
+  const chargerStock = useCallback(async () => {
     try {
       const token =
         localStorage.getItem('token');
@@ -243,7 +183,55 @@ export default function SaisieActivite({
         error
       );
     }
-  }
+  }, [designation]);
+
+  /*
+   * =========================================================
+   * CHARGEMENT DU STOCK
+   * =========================================================
+   */
+
+  useEffect(() => {
+    if (
+      typeOperation === 'vente' &&
+      flags.vente
+    ) {
+      chargerStock();
+    }
+  }, [
+    typeOperation,
+    flags.vente,
+    chargerStock
+  ]);
+
+  /*
+   * =========================================================
+   * TOTAL DE LA VENTE
+   * =========================================================
+   *
+   * IMPORTANT :
+   *
+   * quantité saisie × prix saisi par la secrétaire
+   *
+   * Exemple :
+   *
+   * 2 Gros
+   * Prix : 20 000
+   *
+   * Total = 40 000 FCFA
+   */
+
+  const totalVente = useMemo(
+    () =>
+      (Number(quantite) || 0) *
+      (Number(prixUnitaire) || 0),
+    [
+      quantite,
+      prixUnitaire
+    ]
+  );
+
+
 
   /*
    * =========================================================

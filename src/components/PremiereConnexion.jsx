@@ -2,13 +2,15 @@ import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 export default function PremiereConnexion() {
   const [nouveauPassword, setNouveauPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
 
-  const { user, token, login } = useContext(AuthContext);
+  const { token, login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -29,7 +31,7 @@ export default function PremiereConnexion() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/changer-mdp', {
+      const response = await fetch(`${BACKEND_URL}/api/auth/changer-mdp`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

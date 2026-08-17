@@ -3,6 +3,7 @@ import io from 'socket.io-client';
 import { Link } from 'react-router-dom';
 
 import LogoutButton from '../components/LogoutButton';
+import InstallPwaButton from '../components/InstallPwaButton';
 import SaisieActivite from '../components/SaisieActivite';
 import SaisieStock from '../components/SaisieStock';
 import CreditBanqueSection from '../components/CreditBanqueSection';
@@ -19,7 +20,7 @@ const BACKEND_URL =
 export default function DashboardSecretaire({ profil }) {
   const [stocks, setStocks] = useState([]);
   const [historiqueActivites, setHistoriqueActivites] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(token && currentSiteId));
 
   const flags = useMemo(
     () => getPermissionFlags(profil),
@@ -46,7 +47,6 @@ export default function DashboardSecretaire({ profil }) {
 
   useEffect(() => {
     if (!token || !currentSiteId) {
-      setLoading(false);
       return undefined;
     }
 
@@ -398,6 +398,8 @@ export default function DashboardSecretaire({ profil }) {
           </div>
 
           <div className="flex items-center gap-3">
+
+            <InstallPwaButton role="secretaire" />
 
             <Link
               to="/historique"
