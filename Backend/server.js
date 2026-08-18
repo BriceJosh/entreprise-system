@@ -132,6 +132,19 @@ mongoose.connection.on('error', (err) => {
   console.error('❌ Erreur MongoDB :', err.message);
 });
 
+// Route de santé pour Render / Uptime monitors
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    dbConnected: mongoose.connection.readyState === 1
+  });
+});
+
+app.get('/', (req, res) => {
+  res.send('API Entreprise System opérationnelle');
+});
+
 // Middleware pour vérifier la connexion à la base de données
 app.use((req, res, next) => {
   if (mongoose.connection.readyState !== 1 && !req.path.startsWith('/api/health')) {
