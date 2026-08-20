@@ -37,8 +37,14 @@ if ($currentPath -notlike "*$InstallDir*") {
 
 # 4. Installation en tant que Service Windows si un token est fourni
 if ($TunnelToken -ne "") {
+    # Nettoyage automatique si l'utilisateur a copie toute la commande 'cloudflared.exe service install <TOKEN>'
+    $cleanToken = $TunnelToken.Trim()
+    if ($cleanToken -match "(eyJh[A-Za-z0-9_\-]+)") {
+        $cleanToken = $Matches[1]
+    }
+
     Write-Host "`n[INFO] Installation du service Cloudflare Tunnel avec le Token..." -ForegroundColor Yellow
-    & $ExePath service install $TunnelToken
+    & $ExePath service install $cleanToken
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[OK] Service Windows Cloudflare Tunnel installe et demarre !" -ForegroundColor Green
     }
