@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import LogoutButton from '../components/LogoutButton';
 import { formaterQuantiteVente } from '../utils/formatStock';
-
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+import { BACKEND_URL } from '../config/api';
 
 const TYPES = [
   ['tous', 'Tous les types'],

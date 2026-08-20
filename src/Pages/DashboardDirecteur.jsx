@@ -5,8 +5,7 @@ import LogoutButton from "../components/LogoutButton";
 import InstallPwaButton from "../components/InstallPwaButton";
 import SupervisionCaissesDirecteur from "../components/SupervisionCaissesDirecteur";
 import { formaterQuantiteVente, formaterStock } from "../utils/formatStock";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+import { BACKEND_URL } from "../config/api";
 
 /**
  * Transforme n'importe quelle représentation d'un ID
@@ -196,7 +195,7 @@ export default function DashboardDirecteur({ profil }) {
       return;
     }
 
-    const socket = io(BACKEND_URL, {
+    const socket = io(BACKEND_URL || undefined, {
       auth: {
         token,
       },

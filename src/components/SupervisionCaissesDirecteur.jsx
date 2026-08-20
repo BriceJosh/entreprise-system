@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { formaterQuantiteVente } from '../utils/formatStock';
-
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+import { BACKEND_URL } from '../config/api';
 
 /**
  * Transforme n'importe quelle représentation d'un ID MongoDB en chaîne comparable.
@@ -329,7 +327,7 @@ export default function SupervisionCaissesDirecteur() {
   useEffect(() => {
     const token = localStorage.getItem('token');
 
-    const socket = io(BACKEND_URL, {
+    const socket = io(BACKEND_URL || undefined, {
       auth: {
         token
       },

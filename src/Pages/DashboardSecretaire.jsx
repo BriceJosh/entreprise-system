@@ -12,10 +12,7 @@ import {
   formaterQuantiteVente,
   formaterStock
 } from '../utils/formatStock';
-
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL ||
-  'http://localhost:5000';
+import { BACKEND_URL } from '../config/api';
 
 export default function DashboardSecretaire({ profil }) {
   const token = localStorage.getItem('token');
@@ -50,7 +47,7 @@ export default function DashboardSecretaire({ profil }) {
       return undefined;
     }
 
-    const socket = io(BACKEND_URL, {
+    const socket = io(BACKEND_URL || undefined, {
       auth: {
         token
       }

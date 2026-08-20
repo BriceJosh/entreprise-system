@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BACKEND_URL } from '../config/api';
 
 export default function ChangerMdp() {
   const [ancienMdp, setAncienMdp] = useState('');
@@ -23,7 +24,6 @@ export default function ChangerMdp() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
       const res = await fetch(`${BACKEND_URL}/api/auth/changer-mdp`, {
         method: 'POST',

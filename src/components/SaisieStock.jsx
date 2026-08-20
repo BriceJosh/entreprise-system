@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getPermissionFlags } from '../config/permissions';
-
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL ||
-  'http://localhost:5000';
+import { BACKEND_URL } from '../config/api';
 
 export default function SaisieStock({
   profil,

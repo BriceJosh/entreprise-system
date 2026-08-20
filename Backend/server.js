@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 require('dotenv').config({
   path: path.join(__dirname, '.env')
@@ -114,7 +115,7 @@ const connectDB = async () => {
     await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 5000
     });
-    console.log('✅ Connecté à MongoDB Atlas avec succès !');
+    console.log('✅ Connecté à MongoDB avec succès !');
   } catch (err) {
     console.error('❌ Erreur de connexion MongoDB :', err.message);
     console.log('🔄 Nouvelle tentative de connexion à MongoDB dans 5 secondes...');
@@ -132,17 +133,13 @@ mongoose.connection.on('error', (err) => {
   console.error('❌ Erreur MongoDB :', err.message);
 });
 
-// Route de santé pour Render / Uptime monitors
+// Route de santé pour Render / Uptime monitors / Monitoring local
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     dbConnected: mongoose.connection.readyState === 1
   });
-});
-
-app.get('/', (req, res) => {
-  res.send('API Entreprise System opérationnelle');
 });
 
 // Middleware pour vérifier la connexion à la base de données
@@ -155,94 +152,119 @@ app.use((req, res, next) => {
   next();
 });
 
+const initChangeStreams = () => {
+  try {
+    console.log('✅ Tentative d\'activation des Change Streams pour le temps réel...');
+
+    const activiteStream = Activite.watch([], { fullDocument: 'updateLookup' });
+    activiteStream.on('change', (change) => {
+      const document = change.fullDocument;
+
+      if (change.operationType === 'insert' && document) {
+        const userId = document.user_id?._id || document.user_id;
+        if (userId) io.to(`user_${userId}`).emit('activite_ajoutee', document);
+        io.to('role_directeur').emit('activite_ajoutee', document);
+      }
+
+      if (change.operationType === 'update') {
+        const payload = {
+          _id: change.documentKey._id,
+          updatedFields: change.updateDescription?.updatedFields
+        };
+        if (document?.user_id) {
+          const userId = document.user_id?._id || document.user_id;
+          io.to(`user_${userId}`).emit('activite_modifiee', payload);
+        }
+        io.to('role_directeur').emit('activite_modifiee', payload);
+      }
+
+      if (change.operationType === 'delete') {
+        io.to('role_directeur').emit('activite_supprimee', change.documentKey._id);
+      }
+    });
+    activiteStream.on('error', (err) => {
+      console.warn('⚠️ Erreur Activite ChangeStream (activer Replica Set pour le temps réel) :', err.message);
+    });
+
+    const depenseStream = Depense.watch([], { fullDocument: 'updateLookup' });
+    depenseStream.on('change', (change) => {
+      const document = change.fullDocument;
+
+      if (change.operationType === 'insert' && document) {
+        const userId = document.user_id?._id || document.user_id;
+        if (userId) io.to(`user_${userId}`).emit('depense_ajoutee', document);
+        io.to('role_directeur').emit('depense_ajoutee', document);
+      }
+
+      if (change.operationType === 'update') {
+        const payload = {
+          _id: change.documentKey._id,
+          updatedFields: change.updateDescription?.updatedFields
+        };
+        if (document?.user_id) {
+          const userId = document.user_id?._id || document.user_id;
+          io.to(`user_${userId}`).emit('depense_modifiee', payload);
+        }
+        io.to('role_directeur').emit('depense_modifiee', payload);
+      }
+
+      if (change.operationType === 'delete') {
+        io.to('role_directeur').emit('depense_supprimee', change.documentKey._id);
+      }
+    });
+    depenseStream.on('error', (err) => {
+      console.warn('⚠️ Erreur Depense ChangeStream :', err.message);
+    });
+
+    const stockStream = Stock.watch([], { fullDocument: 'updateLookup' });
+    stockStream.on('change', (change) => {
+      if (
+        (change.operationType === 'insert' || change.operationType === 'update') &&
+        change.fullDocument
+      ) {
+        const siteId = change.fullDocument.site_id?._id || change.fullDocument.site_id;
+        if (siteId) io.to(`site_${siteId}`).emit('stock_mis_a_jour', change.fullDocument);
+        io.to('role_directeur').emit('stock_mis_a_jour', change.fullDocument);
+      }
+    });
+    stockStream.on('error', (err) => {
+      console.warn('⚠️ Erreur Stock ChangeStream :', err.message);
+    });
+
+    const depotStream = DepotBanque.watch([], { fullDocument: 'updateLookup' });
+    depotStream.on('change', (change) => {
+      const document = change.fullDocument;
+      if (change.operationType === 'insert' && document) {
+        const userId = document.user_id?._id || document.user_id;
+        if (userId) io.to(`user_${userId}`).emit('depot_banque_ajoute', document);
+        io.to('role_directeur').emit('depot_banque_ajoute', document);
+      }
+    });
+    depotStream.on('error', (err) => {
+      console.warn('⚠️ Erreur DepotBanque ChangeStream :', err.message);
+    });
+
+    const creditStream = Credit.watch([], { fullDocument: 'updateLookup' });
+    creditStream.on('change', (change) => {
+      const document = change.fullDocument;
+      if (!document) return;
+      const userId = document.user_id?._id || document.user_id;
+      const event = change.operationType === 'insert' ? 'credit_ajoute' : 'credit_mis_a_jour';
+      if (userId) io.to(`user_${userId}`).emit(event, document);
+      io.to('role_directeur').emit(event, document);
+    });
+    creditStream.on('error', (err) => {
+      console.warn('⚠️ Erreur Credit ChangeStream :', err.message);
+    });
+
+    console.log('✅ Initialisation des Change Streams terminée.');
+  } catch (streamErr) {
+    console.warn('⚠️ Change Streams non supportés sans Replica Set (activez rs0) :', streamErr.message);
+  }
+};
+
 mongoose.connection.once('open', () => {
-  console.log('✅ Activation des Change Streams pour le temps réel...');
-
-  const activiteStream = Activite.watch([], { fullDocument: 'updateLookup' });
-  activiteStream.on('change', (change) => {
-    const document = change.fullDocument;
-
-    if (change.operationType === 'insert' && document) {
-      const userId = document.user_id?._id || document.user_id;
-      if (userId) io.to(`user_${userId}`).emit('activite_ajoutee', document);
-      io.to('role_directeur').emit('activite_ajoutee', document);
-    }
-
-    if (change.operationType === 'update') {
-      const payload = {
-        _id: change.documentKey._id,
-        updatedFields: change.updateDescription.updatedFields
-      };
-      if (document?.user_id) {
-        const userId = document.user_id?._id || document.user_id;
-        io.to(`user_${userId}`).emit('activite_modifiee', payload);
-      }
-      io.to('role_directeur').emit('activite_modifiee', payload);
-    }
-
-    if (change.operationType === 'delete') {
-      io.to('role_directeur').emit('activite_supprimee', change.documentKey._id);
-    }
-  });
-
-  const depenseStream = Depense.watch([], { fullDocument: 'updateLookup' });
-  depenseStream.on('change', (change) => {
-    const document = change.fullDocument;
-
-    if (change.operationType === 'insert' && document) {
-      const userId = document.user_id?._id || document.user_id;
-      if (userId) io.to(`user_${userId}`).emit('depense_ajoutee', document);
-      io.to('role_directeur').emit('depense_ajoutee', document);
-    }
-
-    if (change.operationType === 'update') {
-      const payload = {
-        _id: change.documentKey._id,
-        updatedFields: change.updateDescription.updatedFields
-      };
-      if (document?.user_id) {
-        const userId = document.user_id?._id || document.user_id;
-        io.to(`user_${userId}`).emit('depense_modifiee', payload);
-      }
-      io.to('role_directeur').emit('depense_modifiee', payload);
-    }
-
-    if (change.operationType === 'delete') {
-      io.to('role_directeur').emit('depense_supprimee', change.documentKey._id);
-    }
-  });
-
-  const stockStream = Stock.watch([], { fullDocument: 'updateLookup' });
-  stockStream.on('change', (change) => {
-    if (
-      (change.operationType === 'insert' || change.operationType === 'update') &&
-      change.fullDocument
-    ) {
-      const siteId = change.fullDocument.site_id?._id || change.fullDocument.site_id;
-      if (siteId) io.to(`site_${siteId}`).emit('stock_mis_a_jour', change.fullDocument);
-      io.to('role_directeur').emit('stock_mis_a_jour', change.fullDocument);
-    }
-  });
-
-  const depotStream = DepotBanque.watch([], { fullDocument: 'updateLookup' });
-  depotStream.on('change', (change) => {
-    const document = change.fullDocument;
-    if (change.operationType === 'insert' && document) {
-      const userId = document.user_id?._id || document.user_id;
-      if (userId) io.to(`user_${userId}`).emit('depot_banque_ajoute', document);
-      io.to('role_directeur').emit('depot_banque_ajoute', document);
-    }
-  });
-
-  const creditStream = Credit.watch([], { fullDocument: 'updateLookup' });
-  creditStream.on('change', (change) => {
-    const document = change.fullDocument;
-    if (!document) return;
-    const userId = document.user_id?._id || document.user_id;
-    const event = change.operationType === 'insert' ? 'credit_ajoute' : 'credit_mis_a_jour';
-    if (userId) io.to(`user_${userId}`).emit(event, document);
-    io.to('role_directeur').emit(event, document);
-  });
+  initChangeStreams();
 });
 
 // =============================================================
@@ -481,6 +503,24 @@ app.post('/api/auth/changer-mdp', verifyToken, handleChangePassword);
 app.put('/api/auth/changer-mdp', verifyToken, handleChangePassword);
 app.post('/api/auth/change-password', verifyToken, handleChangePassword);
 app.put('/api/auth/change-password', verifyToken, handleChangePassword);
+
+// =============================================================
+// SERVEUR STATIQUE & CLIENT-SIDE ROUTING (Vite Build / SPA)
+// =============================================================
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Fallback pour le routage côté client React (compatible Express 5)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ message: 'Route API introuvable' });
+  }
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.status(200).send('API Entreprise System opérationnelle. (Compilez le frontend avec "npm run build" pour voir l\'interface).');
+});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', () => {

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+import { BACKEND_URL } from '../config/api';
 const montant = (value) => (Number(value) || 0).toLocaleString('fr-FR');
 
 export default function CreditBanqueSection() {
