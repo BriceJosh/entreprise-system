@@ -23,6 +23,21 @@ function Write-Titre($txt) {
     Write-Host "==========================================================" -ForegroundColor Cyan
 }
 
+# Affiche en priorite les lignes FATALES/ERREUR du log MongoDB
+# (les piles d'execution masquent souvent le vrai message)
+function Show-ErreursLog($logFile, $lignesBrutes = 40) {
+    if (-not ($logFile -and (Test-Path $logFile))) { return }
+    $errs = Get-Content $logFile -Tail 500 -ErrorAction SilentlyContinue | Where-Object { $_ -match '"s":"(F|E)"' } | Select-Object -Last 15
+    if ($errs) {
+        Write-Host "`n[LOG] Messages FATALS/ERREURS recents de $logFile :" -ForegroundColor Yellow
+        $errs | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+    }
+    else {
+        Write-Host "`n[LOG] Dernieres lignes de $logFile :" -ForegroundColor Yellow
+        Get-Content $logFile -Tail $lignesBrutes -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+    }
+}
+
 Write-Titre " REPARATION MONGODB "
 
 # ------------------------------------------------------------
@@ -138,15 +153,23 @@ else {
 # ------------------------------------------------------------
 # 6. Reparation de la base
 # ------------------------------------------------------------
+# Suppression d'un eventuel dossier temporaire laisse par une
+# reparation interrompue (cause connue de crash au redemarrage)
+$tmpRepair = Get-ChildItem $dataDir -Directory -Filter "_tmp_repairDatabase_*" -ErrorAction SilentlyContinue
+foreach ($d in $tmpRepair) {
+    Write-Host "[INFO] Suppression du dossier temporaire obsolete : $($d.FullName)" -ForegroundColor Yellow
+    Remove-Item $d.FullName -Recurse -Force
+}
+
 Write-Host "`n[ACTION] Lancement de la reparation (mongod --repair)..." -ForegroundColor Yellow
 Write-Host "         Operation potentiellement longue selon la taille des donnees, patientez..." -ForegroundColor Gray
 & $mongodExe --repair --config $cfgFile 2>&1 | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
 $repairCode = $LASTEXITCODE
 if ($repairCode -ne 0) {
-    Write-Host "[ECHEC] La reparation a echoue (code $repairCode). Dernieres lignes du log :" -ForegroundColor Red
-    if (Test-Path $logFile) { Get-Content $logFile -Tail 25 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray } }
-    Write-Host "[PISTE] Si le log signale des fichiers illisibles, restaurez votre derniere sauvegarde" -ForegroundColor Yellow
-    Write-Host "        (mongorestore, cf. scripts\backup-db.ps1) ou envoyez ce log au support." -ForegroundColor Yellow
+    Write-Host "[ECHEC] La reparation a echoue (code $repairCode)." -ForegroundColor Red
+    Show-ErreursLog $logFile
+    Write-Host "[PISTE] Envoyez les messages ci-dessus au support : ils indiquent la cause exacte" -ForegroundColor Yellow
+    Write-Host "        (corruption WiredTiger, incompatibilite de version, fichier illisible...)." -ForegroundColor Yellow
     exit 1
 }
 Write-Host "[OK] Reparation terminee sans erreur." -ForegroundColor Green
@@ -173,7 +196,7 @@ if ((Get-Service -Name $svc.Name).Status -eq "Running" -and $portOk) {
     }
 }
 else {
-    Write-Host "[ECHEC] Le service ne repond toujours pas apres reparation. Dernieres lignes du log :" -ForegroundColor Red
-    if (Test-Path $logFile) { Get-Content $logFile -Tail 30 | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray } }
+    Write-Host "[ECHEC] Le service ne repond toujours pas apres reparation." -ForegroundColor Red
+    Show-ErreursLog $logFile
     exit 1
 }
