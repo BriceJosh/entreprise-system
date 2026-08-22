@@ -162,7 +162,25 @@ Le script vérifie : le service MongoDB, le port 27017, l'application PM2, l'API
 powershell -ExecutionPolicy Bypass -File .\scripts\diagnostic-serveur.ps1 -Reparer
 ```
 
-### Étape 7.3 : Réparation manuelle (si besoin)
+### Étape 7.3 : Réparation de la base MongoDB (service qui refuse de démarrer)
+
+Si le service MongoDB reste à l'état *Stopped* même après `-Reparer` (souvent après un arrêt brutal du serveur : coupure de courant, crash Windows), les fichiers de données peuvent être endommagés (corruption WiredTiger). Le script de diagnostic affiche alors automatiquement les dernières lignes du log, l'espace disque et la cause probable.
+
+Pour réparer la base :
+
+```powershell
+# Recuperer d'abord le script depuis le depot
+git pull
+
+# Reparer avec sauvegarde prealable des donnees (recommande)
+powershell -ExecutionPolicy Bypass -File .\scripts\reparer-mongodb.ps1 -Sauvegarde
+```
+
+Le script s'occupe de tout : localisation de MongoDB, vérification de l'espace disque, arrêt propre du service, sauvegarde optionnelle (`-Sauvegarde`), exécution de `mongod --repair`, redémarrage et test du port 27017. Il affiche ensuite les étapes suivantes (`pm2 restart entreprise-system` puis re-diagnostic).
+
+> ⚠️ La réparation nécessite un espace libre sur le disque d'environ la taille des données. Utilisez `-Forcer` pour tenter malgré tout.
+
+### Étape 7.4 : Réparation manuelle (si besoin)
 
 ```powershell
 # 1. Redémarrer MongoDB
