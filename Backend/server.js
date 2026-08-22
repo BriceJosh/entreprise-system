@@ -126,7 +126,8 @@ const connectDB = async () => {
 connectDB();
 
 mongoose.connection.on('disconnected', () => {
-  console.warn('⚠️ Connexion MongoDB perdue. Reconnexion...');
+  console.warn('⚠️ Connexion MongoDB perdue. Reconnexion automatique en cours...');
+  closeChangeStreams();
 });
 
 mongoose.connection.on('error', (err) => {
@@ -152,8 +153,37 @@ app.use((req, res, next) => {
   next();
 });
 
+// Liste des Change Streams actifs (permet de les fermer/réinitialiser
+// proprement après une coupure puis une reconnexion de MongoDB).
+let changeStreams = [];
+let changeStreamsTimer = null;
+
+const closeChangeStreams = () => {
+  for (const stream of changeStreams) {
+    try {
+      stream.close();
+    } catch (_) {
+      // Flux déjà fermé : on ignore.
+    }
+  }
+  changeStreams = [];
+};
+
+// Anti-doublon : on attend que la connexion soit réellement stable
+// avant de recréer les Change Streams.
+const scheduleInitChangeStreams = () => {
+  if (changeStreamsTimer) clearTimeout(changeStreamsTimer);
+  changeStreamsTimer = setTimeout(() => {
+    changeStreamsTimer = null;
+    if (mongoose.connection.readyState === 1) {
+      initChangeStreams();
+    }
+  }, 1500);
+};
+
 const initChangeStreams = () => {
   try {
+    closeChangeStreams();
     console.log('✅ Tentative d\'activation des Change Streams pour le temps réel...');
 
     const activiteStream = Activite.watch([], { fullDocument: 'updateLookup' });
@@ -257,14 +287,28 @@ const initChangeStreams = () => {
       console.warn('⚠️ Erreur Credit ChangeStream :', err.message);
     });
 
+    changeStreams.push(
+      activiteStream,
+      depenseStream,
+      stockStream,
+      depotStream,
+      creditStream
+    );
+
     console.log('✅ Initialisation des Change Streams terminée.');
   } catch (streamErr) {
     console.warn('⚠️ Change Streams non supportés sans Replica Set (activez rs0) :', streamErr.message);
   }
 };
 
-mongoose.connection.once('open', () => {
-  initChangeStreams();
+mongoose.connection.on('open', () => {
+  console.log('✅ Connexion MongoDB ouverte.');
+  scheduleInitChangeStreams();
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('✅ Reconnecté à MongoDB avec succès.');
+  scheduleInitChangeStreams();
 });
 
 // =============================================================
