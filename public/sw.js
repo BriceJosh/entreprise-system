@@ -1,4 +1,6 @@
-const CACHE_NAME = "entreprise-system-v1";
+// Incrémentez ce numéro à CHAQUE déploiement pour forcer la purge du cache
+// des navigateurs clients (sinon l'ancienne interface reste affichée).
+const CACHE_NAME = "entreprise-system-v2";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
@@ -36,6 +38,36 @@ self.addEventListener("fetch", (event) => {
 
   // Skip cross-origin or API requests from caching strategy
   if (event.request.url.includes("/api/")) {
+    return;
+  }
+
+  // Fichiers compilés Vite (assets/...) et index.html :
+  // TOUJOURS le réseau d'abord, sinon les navigateurs affichent
+  // l'ancienne application après chaque déploiement.
+  const url = new URL(event.request.url);
+  const estAssetCompile =
+    url.pathname.startsWith("/assets/") ||
+    url.pathname === "/index.html" ||
+    url.pathname === "/";
+
+  if (estAssetCompile) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            networkResponse.type === "basic"
+          ) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 

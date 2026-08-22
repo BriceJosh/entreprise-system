@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import LogoutButton from '../components/LogoutButton';
 import { formaterQuantiteVente } from '../utils/formatStock';
@@ -193,32 +193,20 @@ export default function Historique({ profil }) {
 
   /**
    * Chargement des opérations d'historique
+   *
+   * Point de chargement UNIQUE : le useEffect réagit aux filtres et au
+   * bouton « Appliquer les filtres » (via refreshTick). Un compteur de
+   * requêtes (requeteRef) ignore les réponses qui arrivent en retard,
+   * évitant qu'une ancienne réponse écrase les données à jour.
    */
-  const chargerHistorique = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const currentToken = localStorage.getItem('token');
-      const queryStr = construireQuery().toString();
-      const response = await fetch(
-        `${BACKEND_URL}/api/historique?${queryStr}`,
-        { headers: { Authorization: `Bearer ${currentToken}` } }
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Impossible de charger l'historique.");
-      }
-      setOperations(Array.isArray(data.operations) ? data.operations : []);
-    } catch (err) {
-      setOperations([]);
-      setError(err.message || "Impossible de charger l'historique.");
-    } finally {
-      setLoading(false);
-    }
-  }, [construireQuery]);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const requeteRef = useRef(0);
 
   useEffect(() => {
-    let ignore = false;
+    const idCourant = ++requeteRef.current;
+    setLoading(true);
+    setError('');
+
     const fetchHistorique = async () => {
       try {
         const currentToken = localStorage.getItem('token');
@@ -231,25 +219,22 @@ export default function Historique({ profil }) {
         if (!response.ok) {
           throw new Error(data.message || "Impossible de charger l'historique.");
         }
-        if (!ignore) {
-          setOperations(Array.isArray(data.operations) ? data.operations : []);
-          setError('');
-          setLoading(false);
-        }
+        if (idCourant !== requeteRef.current) return; // réponse périmée
+        setOperations(Array.isArray(data.operations) ? data.operations : []);
+        setError('');
       } catch (err) {
-        if (!ignore) {
-          setOperations([]);
-          setError(err.message || "Impossible de charger l'historique.");
+        if (idCourant !== requeteRef.current) return; // réponse périmée
+        setOperations([]);
+        setError(err.message || "Impossible de charger l'historique.");
+      } finally {
+        if (idCourant === requeteRef.current) {
           setLoading(false);
         }
       }
     };
 
     fetchHistorique();
-    return () => {
-      ignore = true;
-    };
-  }, [construireQuery]);
+  }, [construireQuery, refreshTick]);
 
   /**
    * Raccourcis de période
@@ -323,23 +308,27 @@ export default function Historique({ profil }) {
   /**
    * Calculs de résumé
    */
-  const { totalEntrees, totalSorties, soldeNet } = useMemo(() => {
+  const { totalEntrees, totalDepenses, totalStock, soldeNet } = useMemo(() => {
     let entrees = 0;
-    let sorties = 0;
+    let depenses = 0;
+    let stock = 0;
 
     operations.forEach((op) => {
       const montant = Number(op.montant) || 0;
-      if (op.sens === 'entree') {
+      if (op.type === 'vente' || op.type === 'service' || op.sens === 'entree') {
         entrees += montant;
-      } else if (op.sens === 'sortie') {
-        sorties += montant;
+      } else if (op.type === 'depense' || op.sens === 'depense' || (op.sens === 'sortie' && op.type !== 'stock')) {
+        depenses += montant;
+      } else if (op.type === 'stock' || op.sens === 'stock') {
+        stock += montant;
       }
     });
 
     return {
       totalEntrees: entrees,
-      totalSorties: sorties,
-      soldeNet: entrees - sorties
+      totalDepenses: depenses,
+      totalStock: stock,
+      soldeNet: entrees - depenses
     };
   }, [operations]);
 
@@ -520,7 +509,7 @@ export default function Historique({ profil }) {
           <div className="pt-2 flex justify-end">
             <button
               type="button"
-              onClick={chargerHistorique}
+              onClick={() => setRefreshTick((tick) => tick + 1)}
               disabled={loading}
               className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
             >
@@ -544,28 +533,28 @@ export default function Historique({ profil }) {
 
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-red-500">
             <p className="text-xs font-bold text-gray-400 uppercase">
-              Total Sorties (Dépenses & Stocks)
+              Total Dépenses Caisse
             </p>
             <p className="text-xl font-black text-gray-800 mt-2">
-              {totalSorties.toLocaleString('fr-FR')} FCFA
+              {totalDepenses.toLocaleString('fr-FR')} FCFA
+            </p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-indigo-500">
+            <p className="text-xs font-bold text-gray-400 uppercase">
+              Entrées de Stock (Achats)
+            </p>
+            <p className="text-xl font-black text-gray-800 mt-2">
+              {totalStock.toLocaleString('fr-FR')} FCFA
             </p>
           </div>
 
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-emerald-600">
             <p className="text-xs font-bold text-gray-400 uppercase">
-              Solde Période Filtrée
+              Solde Caisse (Recettes - Dépenses)
             </p>
             <p className={`text-xl font-black mt-2 ${soldeNet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
               {soldeNet.toLocaleString('fr-FR')} FCFA
-            </p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-purple-500">
-            <p className="text-xs font-bold text-gray-400 uppercase">
-              Total Opérations
-            </p>
-            <p className="text-xl font-black text-gray-800 mt-2">
-              {operations.length} ligne(s)
             </p>
           </div>
         </section>
@@ -620,7 +609,8 @@ export default function Historique({ profil }) {
                   <th className="p-3.5">Agent</th>
                   <th className="p-3.5">Désignation & Détails</th>
                   <th className="p-3.5 text-center">Qté</th>
-                  <th className="p-3.5 text-right">Montant</th>
+                  <th className="p-3.5 text-right">Prix Unitaire</th>
+                  <th className="p-3.5 text-right">Montant Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -662,6 +652,11 @@ export default function Historique({ profil }) {
                     <td className="p-3.5 text-center font-bold text-gray-700 whitespace-nowrap">
                       {afficherQuantite(operation)}
                     </td>
+                    <td className="p-3.5 text-right font-semibold text-gray-700 whitespace-nowrap">
+                      {operation.prix_unitaire && Number(operation.prix_unitaire) > 0
+                        ? `${Number(operation.prix_unitaire).toLocaleString('fr-FR')} FCFA`
+                        : '-'}
+                    </td>
                     <td className={`p-3.5 text-right font-black whitespace-nowrap ${classeMontant(operation.sens)}`}>
                       {prefixeMontant(operation.sens)}
                       {(Number(operation.montant) || 0).toLocaleString('fr-FR')} FCFA
@@ -671,7 +666,7 @@ export default function Historique({ profil }) {
 
                 {!loading && !operations.length && (
                   <tr>
-                    <td colSpan="8" className="p-10 text-center text-gray-400 italic">
+                    <td colSpan="9" className="p-10 text-center text-gray-400 italic">
                       Aucune opération trouvée pour ces critères de recherche.
                     </td>
                   </tr>
@@ -679,7 +674,7 @@ export default function Historique({ profil }) {
 
                 {loading && (
                   <tr>
-                    <td colSpan="8" className="p-10 text-center text-gray-400 font-medium">
+                    <td colSpan="9" className="p-10 text-center text-gray-400 font-medium">
                       <div className="flex justify-center items-center gap-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600" />
                         <span>Chargement des données d'historique...</span>
