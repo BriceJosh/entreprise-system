@@ -138,3 +138,42 @@ powershell -ExecutionPolicy Bypass -File .\scripts\update-app.ps1
 ```
 
 Ce script installe les nouveaux packages, reconstruit le Frontend (`dist/`) et redémarre le service PM2 sans interruption prolongée.
+
+---
+
+## 7. Dépannage : "Base de données indisponible" / WebSocket hors service
+
+Si l'application affiche *"La base de données est actuellement indisponible"* ou si le temps réel (Socket.IO) ne fonctionne plus, c'est que **le service MongoDB du serveur est arrêté** ou que **le processus Node.js (PM2) est tombé**.
+
+### Étape 7.1 : Diagnostic automatique (recommandé)
+
+Dans **PowerShell en Administrateur**, dans le dossier du projet :
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File .\scripts\diagnostic-serveur.ps1
+```
+
+Le script vérifie : le service MongoDB, le port 27017, l'application PM2, l'API HTTP, la connexion réelle à la base et Socket.IO.
+
+### Étape 7.2 : Réparation automatique
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\diagnostic-serveur.ps1 -Reparer
+```
+
+### Étape 7.3 : Réparation manuelle (si besoin)
+
+```powershell
+# 1. Redémarrer MongoDB
+Get-Service *MongoDB* | Start-Service
+
+# 2. Redémarrer l'application
+cd C:\ProjetEnt\entreprise-system
+pm2 restart entreprise-system --update-env
+
+# 3. Vérifier
+pm2 logs entreprise-system --lines 50
+```
+
+> 💡 Depuis la mise à jour du code, les Change Streams temps réel se réactivent **automatiquement** dès que MongoDB revient — un simple redémarrage de MongoDB suffit, plus besoin de redémarrer l'application.
