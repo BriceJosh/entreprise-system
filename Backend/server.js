@@ -175,11 +175,48 @@ mongoose.connection.on('error', (err) => {
 });
 
 // Route de santé pour Render / Uptime monitors / Monitoring local
-app.get('/api/health', (req, res) => {
+//
+// Enrichie pour permettre un diagnostic À DISTANCE (sans accès au
+// serveur) : elle fait un PING réel de MongoDB et détaille l'état.
+//
+// readyState Mongoose :
+//   0 = déconnecté | 1 = connecté | 2 = connexion en cours | 3 = déconnexion
+const READY_STATE_LABELS = {
+  0: 'deconnecte',
+  1: 'connecte',
+  2: 'connexion_en_cours',
+  3: 'deconnexion_en_cours'
+};
+
+app.get('/api/health', async (req, res) => {
+  const readyState = mongoose.connection.readyState;
+
+  /*
+   * Ping réel de la base : détecte aussi le cas où Mongoose
+   * croit être connecté (readyState = 1) mais où MongoDB
+   * ne répond plus réellement.
+   */
+  let dbPing = false;
+  try {
+    if (mongoose.connection.db) {
+      await mongoose.connection.db.admin().ping();
+      dbPing = true;
+    }
+  } catch (_) {
+    dbPing = false;
+  }
+
   res.json({
-    status: 'ok',
+    status: dbPing && readyState === 1 ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
-    dbConnected: mongoose.connection.readyState === 1
+    dbConnected: readyState === 1,
+    dbPing,
+    readyState,
+    readyStateLabel: READY_STATE_LABELS[readyState] || 'inconnu',
+    uptimeSecondes: Math.floor(process.uptime()),
+    astuce: dbPing
+      ? null
+      : 'MongoDB ne répond pas. Sur le serveur (PowerShell Administrateur) : scripts\\diagnostic-serveur.ps1'
   });
 });
 
