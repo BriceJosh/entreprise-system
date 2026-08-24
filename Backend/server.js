@@ -125,6 +125,46 @@ const connectDB = async () => {
 
 connectDB();
 
+// =============================================================
+// TÉLÉPHONES DES AGENCES (attribution automatique, idempotente)
+// =============================================================
+// Exécutée à chaque démarrage du serveur : si un site correspond
+// à une agence connue et que son numéro est absent ou différent,
+// il est simplement mis à jour.
+const TELEPHONES_SITES = [
+  { motif: 'difakpota', telephone: '93870704' },
+  { motif: 'adetikope', telephone: '91904000' },
+  { motif: 'tabligbo', telephone: '79459091' }
+];
+
+function normaliserTexteSite(valeur) {
+  return String(valeur || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+async function attribuerTelephonesSites() {
+  try {
+    const sites = await Site.find();
+
+    for (const site of sites) {
+      const texte = normaliserTexteSite(`${site.nom} ${site.ville || ''}`);
+      const cible = TELEPHONES_SITES.find((t) => texte.includes(t.motif));
+
+      if (cible && site.telephone !== cible.telephone) {
+        site.telephone = cible.telephone;
+        await site.save();
+        console.log(`📞 Téléphone ${cible.telephone} attribué au site « ${site.nom} ».`);
+      }
+    }
+  } catch (err) {
+    console.error('⚠️ Attribution des téléphones des sites impossible :', err.message);
+  }
+}
+
+mongoose.connection.once('open', attribuerTelephonesSites);
+
 mongoose.connection.on('disconnected', () => {
   console.warn('⚠️ Connexion MongoDB perdue. Reconnexion automatique en cours...');
   closeChangeStreams();
@@ -379,6 +419,7 @@ app.use('/api/caisse', caisseExportRoutes);
 app.use('/api/depots-banque', depotBanqueRoutes);
 app.use('/api/credits', creditRoutes);
 app.use('/api/historique', historiqueRoutes);
+app.use('/api/recus', require('./routes/recus'));
 
 // =============================================================
 // STATS DIRECTION

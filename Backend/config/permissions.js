@@ -17,7 +17,8 @@ const SERVICE_TYPES = Object.freeze({
   SAISIE: 'saisie',
   PLASTIFICATION: 'plastification',
   IMPRESSION_BACHE: 'impression_bache',
-  IMPRESSION_GRAND_FORMAT: 'impression_grand_format',
+  IMPRESSION_AUTOCOLLANT: 'impression_autocollant',
+  IMPRESSION_DTF: 'impression_dtf',
   AUTRE_SERVICE: 'autre_service'
 });
 
@@ -74,7 +75,8 @@ const ROLE_SERVICES = Object.freeze({
   services: Object.values(SERVICE_TYPES),
   secretaire_1: [
     SERVICE_TYPES.IMPRESSION_BACHE,
-    SERVICE_TYPES.IMPRESSION_GRAND_FORMAT,
+    SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+    SERVICE_TYPES.IMPRESSION_DTF,
     SERVICE_TYPES.AUTRE_SERVICE
   ],
   secretaire_2: [

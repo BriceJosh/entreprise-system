@@ -411,6 +411,15 @@ export default function DashboardSecretaire({ profil }) {
               Historique
             </Link>
 
+            {flags.vente && (
+              <Link
+                to="/recus"
+                className="px-4 py-2 rounded-xl bg-emerald-50 text-xs font-bold text-emerald-700"
+              >
+                Reçus
+              </Link>
+            )}
+
             <Link
               to="/profil"
               className="px-4 py-2 rounded-xl bg-gray-100 text-xs font-bold text-gray-700"
@@ -562,6 +571,29 @@ export default function DashboardSecretaire({ profil }) {
           )}
 
         </div>
+
+        {/* ===================================================
+            REÇUS DU JOUR (lien vers la page dédiée)
+            =================================================== */}
+
+        {flags.vente && (
+          <div className="mt-6">
+            <Link
+              to="/recus"
+              className="flex items-center justify-between p-5 rounded-2xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors"
+            >
+              <div>
+                <p className="text-sm font-black text-emerald-800">
+                  Reçus clients
+                </p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  Consulter et réimprimer les reçus du jour
+                </p>
+              </div>
+              <span className="text-emerald-700 font-black text-lg">→</span>
+            </Link>
+          </div>
+        )}
 
         {/* ===================================================
             STOCK DU SITE

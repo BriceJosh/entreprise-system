@@ -155,6 +155,20 @@ const activiteSchema = new mongoose.Schema(
 
     /*
      * =========================================================
+     * REÇU ASSOCIÉ (facultatif)
+     * =========================================================
+     *
+     * Si la vente fait partie d'un reçu client.
+     */
+
+    recu_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Recu',
+      default: null
+    },
+
+    /*
+     * =========================================================
      * SITE
      * =========================================================
      */

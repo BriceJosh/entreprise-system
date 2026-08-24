@@ -25,7 +25,7 @@ const activites = await Activite.find(filtre)
   .sort({ createdAt: -1 })
   .populate('user_id', 'username email poste')
   .populate('site_id', 'nom');
-  
+
     res.status(200).json(activites);
   } catch (error) {
     console.error("Erreur lors de la récupération des activités :", error);
@@ -38,49 +38,99 @@ const activites = await Activite.find(filtre)
 // ==========================================
 exports.creerActivite = async (req, res) => {
   try {
-    const { type, designation, quantite, prix_unitaire, option_vente, montant_total } = req.body;
+    const { type, designation, quantite, option_vente } = req.body;
     const site_id = req.user?.site_id || req.body.site_id;
     const user_id = req.user?._id || req.user?.id || req.user?.userId;
 
-    if (!type || !designation || !quantite || prix_unitaire === undefined) {
+    if (!type || !designation || !quantite) {
       return res.status(400).json({ message: "Veuillez remplir tous les champs obligatoires." });
     }
 
     let stockMisAJour = null;
 
+    /*
+      * =========================================================
+      * PRIX RÉCUPÉRÉ AUTOMATIQUEMENT DEPUIS LE STOCK
+      * =========================================================
+      *
+      * La secrétaire ne saisit plus le prix de vente.
+      * L'application le récupère dans le stock selon le
+      * mode de vente (Gros / Détail / Pièce).
+      */
+
+    let prix_unitaire = 0;
+    let montant_total = 0;
+
     // --- DÉCRÉMENTATION DU STOCK PARTAGÉ (Pour les Ventes) ---
     if (type === 'vente') {
-      const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // Recherche de l'article dans le stock du site (Partagé entre Secrétaire 3 et 4)
-      const stockItem = await Stock.findOne({
+      /*
+        * Le prix est OBLIGATOIREMENT récupéré depuis le stock.
+        * Si l'article n'existe pas en stock, la vente est refusée.
+        */
+
+      const escapeRegexPrix = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      const stockPourPrix = await Stock.findOne({
         site_id: site_id,
-        nom_article: { $regex: new RegExp(`^${escapeRegex(designation.trim())}$`, 'i') }
+        nom_article: { $regex: new RegExp(`^${escapeRegexPrix(designation.trim())}$`, 'i') }
       });
 
-      if (stockItem) {
-        let multiplicateur = 1;
-        if (option_vente === 'Détail') {
-          multiplicateur = stockItem.multiplicateur_detail || 1;
-        } else if (option_vente === 'Gros') {
-          multiplicateur = stockItem.multiplicateur_gros || 1;
-        }
-
-        const qteAEnlever = Number(quantite) * multiplicateur;
-
-        if (stockItem.quantite < qteAEnlever) {
-          return res.status(400).json({
-            message: `Stock insuffisant pour "${designation}". Quantité restante : ${stockItem.quantite} unité(s).`
-          });
-        }
-
-        stockItem.quantite -= qteAEnlever;
-        stockMisAJour = await stockItem.save();
-
-        if (req.io) {
-          req.io.emit('stock_mis_a_jour', stockMisAJour);
-        }
+      if (!stockPourPrix) {
+        return res.status(400).json({
+          message: `Article "${designation}" introuvable dans le stock. La vente est impossible.`
+        });
       }
+
+      prix_unitaire = stockPourPrix.obtenirPrixParOption(option_vente || 'Pièce');
+
+      if (!prix_unitaire || prix_unitaire <= 0) {
+        return res.status(400).json({
+          message: `Aucun prix de vente configuré pour "${designation}" en mode ${option_vente || 'Pièce'}.`
+        });
+      }
+
+      montant_total = Number(quantite) * prix_unitaire;
+
+      /*
+        * DÉCRÉMENTATION DU STOCK PARTAGÉ
+        * (Partagé entre Secrétaire 3 et 4)
+        */
+
+      let multiplicateur = 1;
+      if (option_vente === 'Détail') {
+        multiplicateur = stockPourPrix.multiplicateur_detail || 1;
+      } else if (option_vente === 'Gros') {
+        multiplicateur = stockPourPrix.multiplicateur_gros || 1;
+      }
+
+      const qteAEnlever = Number(quantite) * multiplicateur;
+
+      if (stockPourPrix.quantite < qteAEnlever) {
+        return res.status(400).json({
+          message: `Stock insuffisant pour "${designation}". Quantité restante : ${stockPourPrix.quantite} unité(s).`
+        });
+      }
+
+      stockPourPrix.quantite -= qteAEnlever;
+      stockMisAJour = await stockPourPrix.save();
+
+      if (req.io) {
+        req.io.emit('stock_mis_a_jour', stockMisAJour);
+      }
+    } else {
+      /*
+        * Pour les autres types d'opérations (impression, etc.),
+        * le prix reste saisi manuellement.
+        */
+
+      const prixManuel = Number(req.body.prix_unitaire);
+
+      if (!Number.isFinite(prixManuel) || prixManuel < 0) {
+        return res.status(400).json({ message: "Veuillez saisir un prix unitaire valide." });
+      }
+
+      prix_unitaire = prixManuel;
+      montant_total = Number(quantite) * prixManuel;
     }
 
     // --- ENREGISTREMENT DE L'ACTIVITÉ (Liée à la secrétaire connectée) ---
@@ -89,7 +139,7 @@ exports.creerActivite = async (req, res) => {
       designation,
       quantite: Number(quantite),
       prix_unitaire: Number(prix_unitaire),
-      montant_total: montant_total || (Number(quantite) * Number(prix_unitaire)),
+      montant_total: montant_total,
       option_vente: type === 'vente' ? (option_vente || 'Pièce') : undefined,
       site_id,
       user_id

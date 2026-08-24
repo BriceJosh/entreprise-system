@@ -7,6 +7,7 @@ import DashboardDirecteur from './Pages/DashboardDirecteur';
 import DashboardSecretaire from './Pages/DashboardSecretaire';
 import Profil from './Pages/Profil';
 import Historique from './Pages/Historique';
+import Recus from './Pages/Recus';
 
 // Composant de repli en cas d'accès non autorisé (403)
 const NonAutorise = () => (
@@ -49,6 +50,11 @@ function ChangerMdpWrapper() {
 function HistoriqueWrapper() {
   const { user } = useAuth();
   return <Historique profil={user} />;
+}
+
+function RecusWrapper() {
+  const { user } = useAuth();
+  return <Recus profil={user} />;
 }
 
 // Redirection intelligente sur la racine `/`
@@ -119,6 +125,15 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['directeur', 'admin', 'secretaire', 'caissier']}>
                 <HistoriqueWrapper />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/recus"
+            element={
+              <ProtectedRoute allowedRoles={['directeur', 'admin', 'secretaire', 'caissier']}>
+                <RecusWrapper />
               </ProtectedRoute>
             }
           />

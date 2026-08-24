@@ -275,20 +275,29 @@ router.post('/', verifyToken, async (req, res) => {
      * =====================================================
      * PRIX
      * =====================================================
+     *
+     * Pour une VENTE, le prix est récupéré AUTOMATIQUEMENT
+     * depuis le stock selon le mode de vente.
+     *
+     * Pour un SERVICE (impression), le prix reste saisi.
      */
 
-    const prixUnitaire = Number(
-      prix_unitaire
-    );
+    let prixUnitaire = 0;
 
-    if (
-      !Number.isFinite(prixUnitaire) ||
-      prixUnitaire < 0
-    ) {
-      return res.status(400).json({
-        message:
-          'Le prix de vente est invalide.'
-      });
+    if (typeOperation !== 'vente') {
+      prixUnitaire = Number(
+        prix_unitaire
+      );
+
+      if (
+        !Number.isFinite(prixUnitaire) ||
+        prixUnitaire < 0
+      ) {
+        return res.status(400).json({
+          message:
+            'Le prix de vente est invalide.'
+        });
+      }
     }
 
     /*
@@ -372,6 +381,27 @@ router.post('/', verifyToken, async (req, res) => {
         return res.status(404).json({
           message:
             `Vente annulée : l'article "${designation}" est introuvable dans le stock de votre site.`
+        });
+      }
+
+      /*
+       * -----------------------------------------------------
+       * PRIX RÉCUPÉRÉ AUTOMATIQUEMENT DEPUIS LE STOCK
+       * -----------------------------------------------------
+       */
+
+      prixUnitaire =
+        articleStock.obtenirPrixParOption(
+          modeOptionVente
+        );
+
+      if (
+        !prixUnitaire ||
+        prixUnitaire <= 0
+      ) {
+        return res.status(400).json({
+          message:
+            `Aucun prix de vente configuré pour "${articleStock.nom_article}" en mode ${modeOptionVente}.`
         });
       }
 

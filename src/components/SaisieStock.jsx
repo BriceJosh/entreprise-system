@@ -27,10 +27,28 @@ export default function SaisieStock({
   const [multiplicateurGros, setMultiplicateurGros] =
     useState('1');
 
-  const [prixVente, setPrixVente] =
+  /*
+    * =========================================================
+    * PRIX DE VENTE MULTI-NIVEAUX
+    * =========================================================
+    *
+    * - Entrée en Gros   : saisir gros + détail + unité
+    * - Entrée en Détail : saisir détail + unité
+    * - Entrée en Pièce  : saisir unité uniquement
+    *
+    * Le prix total est calculé AUTOMATIQUEMENT :
+    * - Gros   → quantité × prix DÉTAIL
+    * - Détail → quantité × prix UNITÉ
+    * - Pièce  → quantité × prix UNITÉ
+    */
+
+  const [prixVenteGros, setPrixVenteGros] =
     useState('');
 
-  const [prixTotal, setPrixTotal] =
+  const [prixVenteDetail, setPrixVenteDetail] =
+    useState('');
+
+  const [prixVenteUnite, setPrixVenteUnite] =
     useState('');
 
   const [stocksExistants, setStocksExistants] =
@@ -166,25 +184,31 @@ export default function SaisieStock({
         );
       }
 
-      if (
-        article.prix_vente !==
-        undefined
-      ) {
-        setPrixVente(
-          String(
-            article.prix_vente
-          )
-        );
-      } else if (
-        article.prix_vente_unite !==
-        undefined
-      ) {
-        setPrixVente(
-          String(
-            article.prix_vente_unite
-          )
-        );
-      }
+      /*
+        * Pré-remplissage des prix de vente existants.
+        */
+
+      setPrixVenteUnite(
+        article.prix_vente_unite !== undefined &&
+        article.prix_vente_unite !== null
+          ? String(article.prix_vente_unite)
+          : article.prix_vente !== undefined &&
+              article.prix_vente !== null
+            ? String(article.prix_vente)
+            : ''
+      );
+
+      setPrixVenteDetail(
+        article.prix_vente_detail
+          ? String(article.prix_vente_detail)
+          : ''
+      );
+
+      setPrixVenteGros(
+        article.prix_vente_gros
+          ? String(article.prix_vente_gros)
+          : ''
+      );
 
       /*
        * Pour un article existant, les multiplicateurs
@@ -258,6 +282,81 @@ export default function SaisieStock({
     multiplicateur;
 
   /*
+    * =========================================================
+    * PRIX TOTAL AUTOMATIQUE
+    * =========================================================
+    */
+
+  const prixUniteNumerique =
+    Number(prixVenteUnite) || 0;
+
+  const prixDetailNumerique =
+    Number(prixVenteDetail) || 0;
+
+  /*
+    * Prix unitaire utilisé pour le calcul du total :
+    * - Gros   → prix DÉTAIL
+    * - Détail → prix UNITÉ
+    * - Pièce  → prix UNITÉ
+    */
+
+  const prixUnitaireCalcul =
+    typeEntree === 'Gros'
+      ? prixDetailNumerique
+      : prixUniteNumerique;
+
+  /*
+    * =========================================================
+    * PRIX TOTAL AUTOMATIQUE
+    * =========================================================
+    *
+    * - Entrée en Gros   :
+    *     nbre de détails = qte × multGros ÷ multDétail
+    *     total = nbre de détails × prix DÉTAIL
+    *
+    * - Entrée en Détail :
+    *     nbre d'unités = qte × multDétail
+    *     total = nbre d'unités × prix UNITÉ
+    *
+    * - Entrée en Pièce  :
+    *     total = qte × prix UNITÉ
+    */
+
+  let prixTotalCalcule = 0;
+
+  if (typeEntree === 'Gros') {
+    const multGros =
+      articleExistant
+        ? Number(articleExistant.multiplicateur_gros) || 1
+        : Number(multiplicateurGros) || 1;
+
+    const multDetail =
+      articleExistant
+        ? Number(articleExistant.multiplicateur_detail) || 1
+        : Number(multiplicateurDetail) || 1;
+
+    const nombreDetails =
+      (quantiteNumerique * multGros) / multDetail;
+
+    prixTotalCalcule =
+      nombreDetails * prixDetailNumerique;
+  } else if (typeEntree === 'Détail') {
+    const multDetail =
+      articleExistant
+        ? Number(articleExistant.multiplicateur_detail) || 1
+        : Number(multiplicateurDetail) || 1;
+
+    const nombreUnites =
+      quantiteNumerique * multDetail;
+
+    prixTotalCalcule =
+      nombreUnites * prixUniteNumerique;
+  } else {
+    prixTotalCalcule =
+      quantiteNumerique * prixUniteNumerique;
+  }
+
+  /*
    * =========================================================
    * SOUMISSION
    * =========================================================
@@ -312,37 +411,61 @@ export default function SaisieStock({
       return;
     }
 
-    const prixVenteNumerique =
-      Number(prixVente);
+    /*
+      * =======================================================
+      * VALIDATION DES PRIX SELON LE TYPE D'ENTRÉE
+      * =======================================================
+      */
+
+    const prixUniteSaisi =
+      Number(prixVenteUnite);
+
+    const prixDetailSaisi =
+      Number(prixVenteDetail);
+
+    const prixGrosSaisi =
+      Number(prixVenteGros);
 
     if (
-      !Number.isFinite(
-        prixVenteNumerique
-      ) ||
-      prixVenteNumerique < 0
+      !Number.isFinite(prixUniteSaisi) ||
+      prixUniteSaisi < 0 ||
+      prixVenteUnite === ''
     ) {
       setMessage({
         type: 'error',
         text:
-          'Veuillez saisir un prix de vente valide.'
+          "Le prix de vente à l'unité est obligatoire."
       });
 
       return;
     }
 
-    const prixTotalNumerique =
-      Number(prixTotal);
-
     if (
-      !Number.isFinite(
-        prixTotalNumerique
-      ) ||
-      prixTotalNumerique < 0
+      (typeEntree === 'Gros' ||
+        typeEntree === 'Détail') &&
+      (prixVenteDetail === '' ||
+        !Number.isFinite(prixDetailSaisi) ||
+        prixDetailSaisi < 0)
     ) {
       setMessage({
         type: 'error',
         text:
-          'Veuillez saisir un prix total valide.'
+          "Le prix de vente à la détail est obligatoire pour une entrée en gros ou en détail."
+      });
+
+      return;
+    }
+
+    if (
+      typeEntree === 'Gros' &&
+      (prixVenteGros === '' ||
+        !Number.isFinite(prixGrosSaisi) ||
+        prixGrosSaisi < 0)
+    ) {
+      setMessage({
+        type: 'error',
+        text:
+          "Le prix de vente en gros est obligatoire pour une entrée en gros."
       });
 
       return;
@@ -387,15 +510,32 @@ export default function SaisieStock({
         seuil_alerte:
           Number(seuilAlerte) || 5,
 
-        prix_vente:
-          prixVenteNumerique,
+        /*
+          * Prix de vente multi-niveaux.
+          *
+          * Le prix total n'est PAS envoyé : il est calculé
+          * automatiquement par le backend.
+          */
 
-        prix_total:
-          prixTotalNumerique,
+        prix_vente_unite:
+          prixUniteSaisi,
 
         site_id:
           siteId
       };
+
+      if (
+        typeEntree === 'Gros' ||
+        typeEntree === 'Détail'
+      ) {
+        payload.prix_vente_detail =
+          prixDetailSaisi;
+      }
+
+      if (typeEntree === 'Gros') {
+        payload.prix_vente_gros =
+          prixGrosSaisi;
+      }
 
       /*
        * Les multiplicateurs ne sont envoyés que pour
@@ -474,9 +614,11 @@ export default function SaisieStock({
 
       setMultiplicateurGros('1');
 
-      setPrixVente('');
+      setPrixVenteGros('');
 
-      setPrixTotal('');
+      setPrixVenteDetail('');
+
+      setPrixVenteUnite('');
 
       setArticleExistant(null);
 
@@ -678,43 +820,96 @@ export default function SaisieStock({
 
         </div>
 
-        {/* PRIX */}
+        {/* PRIX DE VENTE SELON LE TYPE D'ENTRÉE */}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 space-y-3">
+
+          <p className="text-xs font-bold text-amber-600">
+            Prix de vente
+            {typeEntree === 'Gros'
+              ? ' (gros, détail et unité)'
+              : typeEntree === 'Détail'
+                ? " (détail et unité)"
+                : " (unité uniquement)"}
+          </p>
+
+          {typeEntree === 'Gros' && (
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={prixVenteGros}
+              onChange={e =>
+                setPrixVenteGros(
+                  e.target.value
+                )
+              }
+              className="w-full p-3 rounded-xl border bg-white text-sm"
+              placeholder="Prix de vente en gros (1 Gros)"
+              required
+            />
+          )}
+
+          {(typeEntree === 'Gros' ||
+            typeEntree === 'Détail') && (
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={prixVenteDetail}
+              onChange={e =>
+                setPrixVenteDetail(
+                  e.target.value
+                )
+              }
+              className="w-full p-3 rounded-xl border bg-white text-sm"
+              placeholder="Prix de vente à la détail (1 Détail)"
+              required
+            />
+          )}
 
           <input
             type="number"
             min="0"
             step="1"
-            value={
-              prixVente
-            }
+            value={prixVenteUnite}
             onChange={e =>
-              setPrixVente(
+              setPrixVenteUnite(
                 e.target.value
               )
             }
-            className="p-3 rounded-xl border bg-gray-50 text-sm"
-            placeholder="Prix de vente"
+            className="w-full p-3 rounded-xl border bg-white text-sm"
+            placeholder="Prix de vente à l'unité (1 Unité)"
             required
           />
 
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={
-              prixTotal
-            }
-            onChange={e =>
-              setPrixTotal(
-                e.target.value
-              )
-            }
-            className="p-3 rounded-xl border bg-gray-50 text-sm"
-            placeholder="Prix total de la quantité"
-            required
-          />
+        </div>
+
+        {/* PRIX TOTAL AUTOMATIQUE */}
+
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+
+          <p className="text-xs font-bold text-emerald-600 mb-1">
+            Prix total (calculé automatiquement)
+          </p>
+
+          <p className="text-lg font-black text-emerald-800">
+            {prixTotalCalcule.toLocaleString(
+              'fr-FR'
+            )}{' '}
+            FCFA
+          </p>
+
+          {quantiteNumerique > 0 && (
+            <p className="text-xs text-emerald-500 mt-1">
+              {quantiteNumerique}{' '}{typeEntree}
+              {' × '}
+              {prixUnitaireCalcul.toLocaleString(
+                'fr-FR'
+              )}{' '}
+              FCFA
+            </p>
+          )}
 
         </div>
 

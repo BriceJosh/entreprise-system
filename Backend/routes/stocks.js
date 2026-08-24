@@ -326,38 +326,145 @@ router.post(
       }
 
       /*
-       * =====================================================
-       * PRIX
-       * =====================================================
-       */
+        * =====================================================
+        * PRIX DE VENTE MULTI-NIVEAUX
+        * =====================================================
+        *
+        * Selon le type d'entrée, la secrétaire doit saisir :
+        *
+        * - Gros   : prix gros + détail + unité
+        * - Détail : prix détail + unité
+        * - Pièce  : prix unité uniquement
+        */
 
-      const prixVente =
-        Number.isFinite(Number(prix_vente))
-          ? Number(prix_vente)
-          : Number(prix_vente_unite) || 0;
+      const lirePrix = valeur => {
+        if (valeur === undefined || valeur === null || valeur === '') {
+          return null;
+        }
 
-      const prixTotal =
-        Number(prix_total);
+        const nombre = Number(valeur);
 
-      if (
-        !Number.isFinite(prixTotal) ||
-        prixTotal < 0
-      ) {
+        return Number.isFinite(nombre) && nombre >= 0 ? nombre : NaN;
+      };
+
+      const prixUniteSaisi = lirePrix(
+        prix_vente_unite !== undefined
+          ? prix_vente_unite
+          : prix_vente
+      );
+
+      const prixDetailSaisi = lirePrix(prix_vente_detail);
+
+      const prixGrosSaisi = lirePrix(prix_vente_gros);
+
+      if (prixUniteSaisi === null || Number.isNaN(prixUniteSaisi)) {
         return res.status(400).json({
           message:
-            'Le prix total est invalide.'
+            "Le prix de vente à l'unité est obligatoire et doit être valide."
         });
       }
 
+      /*
+        * Prix de vente unitaire utilisé pour le calcul du total.
+        *
+        * - Entrée en Gros   → prix à la DÉTAIL
+        * - Entrée en Détail → prix à l'UNITÉ
+        * - Entrée en Pièce  → prix à l'UNITÉ
+        */
+
+      let prixUnitaireCalcul;
+
+      switch (typeEntreeNormalise) {
+        case 'Gros':
+          prixUnitaireCalcul = prixDetailSaisi;
+          break;
+
+        case 'Détail':
+          prixUnitaireCalcul = prixUniteSaisi;
+          break;
+
+        default:
+          prixUnitaireCalcul = prixUniteSaisi;
+      }
+
       if (
-        !Number.isFinite(prixVente) ||
-        prixVente < 0
+        prixUnitaireCalcul === null ||
+        Number.isNaN(prixUnitaireCalcul)
       ) {
         return res.status(400).json({
           message:
-            'Le prix de vente est invalide.'
+            typeEntreeNormalise === 'Gros'
+              ? "Le prix de vente à la détail est obligatoire pour une entrée en gros."
+              : "Le prix de vente à l'unité est obligatoire."
         });
       }
+
+      /*
+        * =====================================================
+        * PRIX TOTAL AUTOMATIQUE
+        * =====================================================
+        *
+        * - Entrée en Gros   :
+        *     nbre de détails = qte × multGros ÷ multDétail
+        *     total = nbre de détails × prix DÉTAIL
+        *
+        * - Entrée en Détail :
+        *     nbre d'unités = qte × multDétail
+        *     total = nbre d'unités × prix UNITÉ
+        *
+        * - Entrée en Pièce  :
+        *     total = qte × prix UNITÉ
+        */
+
+      /*
+        * Recherche préalable de l'article pour connaître ses
+        * multiplicateurs (utile si l'article existe déjà).
+        */
+
+      const nomCleanPrix =
+        escapeRegex(
+          String(nom_article).trim()
+        );
+
+      const articleExistantStock =
+        await Stock.findOne({
+          nom_article: {
+            $regex:
+              new RegExp(
+                `^${nomCleanPrix}$`,
+                'i'
+              )
+          },
+          site_id: targetSiteId
+        });
+
+      let prixTotal;
+
+      if (typeEntreeNormalise === 'Gros') {
+        const multGros =
+          articleExistantStock?.multiplicateur_gros ?? multiplicateur_gros ?? 1;
+
+        const multDetail =
+          articleExistantStock?.multiplicateur_detail ?? multiplicateur_detail ?? 1;
+
+        const nombreDetails =
+          (quantiteEntree * Number(multGros)) /
+          Math.max(1, Number(multDetail));
+
+        prixTotal = nombreDetails * prixUnitaireCalcul;
+      } else if (typeEntreeNormalise === 'Détail') {
+        const multDetail =
+          articleExistantStock?.multiplicateur_detail ?? multiplicateur_detail ?? 1;
+
+        const nombreUnites =
+          quantiteEntree * Number(multDetail);
+
+        prixTotal = nombreUnites * prixUnitaireCalcul;
+      } else {
+        prixTotal = quantiteEntree * prixUnitaireCalcul;
+      }
+
+      const prixVente = prixUniteSaisi;
 
       /*
        * =====================================================
@@ -439,39 +546,28 @@ router.post(
         }
 
         /*
-         * Le nouveau prix de vente devient le prix
-         * de référence actuel.
-         */
+          * Mise à jour des prix de vente selon ce qui a été
+          * saisi lors de cette entrée :
+          *
+          * - Prix unité : toujours mis à jour (obligatoire).
+          * - Prix détail : si saisi (entrée en Gros ou Détail).
+          * - Prix gros   : si saisi (entrée en Gros).
+          */
 
         stock.prix_vente =
           prixVente;
 
-        /*
-         * Compatibilité avec l'ancien système.
-         *
-         * On garde également le prix unité.
-         */
-
         stock.prix_vente_unite =
           prixVente;
 
-        /*
-         * Si l'ancien frontend envoyait encore des prix
-         * Gros/Détail, on les conserve.
-         */
-
-        if (
-          prix_vente_detail !== undefined
-        ) {
+        if (prixDetailSaisi !== null) {
           stock.prix_vente_detail =
-            Number(prix_vente_detail) || 0;
+            prixDetailSaisi;
         }
 
-        if (
-          prix_vente_gros !== undefined
-        ) {
+        if (prixGrosSaisi !== null) {
           stock.prix_vente_gros =
-            Number(prix_vente_gros) || 0;
+            prixGrosSaisi;
         }
 
         await stock.save();
@@ -504,7 +600,7 @@ router.post(
               multiplicateur,
 
             prix_vente_unitaire:
-              prixVente,
+              prixUnitaireCalcul,
 
             prix_total:
               prixTotal,
@@ -605,8 +701,42 @@ router.post(
       }
 
       /*
-       * Calcul du multiplicateur utilisé.
-       */
+        * =====================================================
+        * VALIDATION DES PRIX SELON LE TYPE D'ENTRÉE
+        * =====================================================
+        *
+        * À la PREMIÈRE enregistrement de l'article, tous les
+        * prix applicables doivent être fournis :
+        *
+        * - Gros   : gros + détail + unité
+        * - Détail : détail + unité
+        * - Pièce  : unité uniquement
+        */
+
+      if (
+        typeEntreeNormalise === 'Gros' &&
+        (prixGrosSaisi === null || Number.isNaN(prixGrosSaisi))
+      ) {
+        return res.status(400).json({
+          message:
+            "Le prix de vente en gros est obligatoire pour un nouvel article entré en gros."
+        });
+      }
+
+      if (
+        (typeEntreeNormalise === 'Gros' ||
+          typeEntreeNormalise === 'Détail') &&
+        (prixDetailSaisi === null || Number.isNaN(prixDetailSaisi))
+      ) {
+        return res.status(400).json({
+          message:
+            "Le prix de vente à la détail est obligatoire pour un nouvel article."
+        });
+      }
+
+      /*
+        * Calcul du multiplicateur utilisé.
+        */
 
       const multiplicateur =
         typeEntreeNormalise === 'Gros'
@@ -669,17 +799,17 @@ router.post(
             prixVente,
 
           /*
-           * Compatibilité ancienne structure.
-           */
+            * Compatibilité ancienne structure.
+            */
 
           prix_vente_unite:
             prixVente,
 
           prix_vente_detail:
-            Number(prix_vente_detail) || 0,
+            prixDetailSaisi || 0,
 
           prix_vente_gros:
-            Number(prix_vente_gros) || 0,
+            prixGrosSaisi || 0,
 
           site_id:
             targetSiteId
@@ -717,7 +847,7 @@ router.post(
             multiplicateur,
 
           prix_vente_unitaire:
-            prixVente,
+            prixUnitaireCalcul,
 
           prix_total:
             prixTotal,
