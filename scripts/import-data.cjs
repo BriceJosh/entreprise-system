@@ -4,7 +4,7 @@ const backendPath = path.join(__dirname, '../Backend');
 const mongoose = require(path.join(backendPath, 'node_modules/mongoose'));
 const fs = require('fs');
 require(path.join(backendPath, 'node_modules/dotenv')).config({ path: path.join(backendPath, '.env') });
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/entreprise_db?replicaSet=rs0";
+const MONGO_URI = "mongodb://127.0.0.1:27017/entreprise_db";
 const DATA_DIR = path.join(__dirname, '../data_recuperee_json');
 
 async function importData() {
