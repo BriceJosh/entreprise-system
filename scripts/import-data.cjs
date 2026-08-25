@@ -18,10 +18,10 @@ async function importData() {
       return;
     }
 
-    const files = fs.readdirSync(DATA_DIR).filter(file => file.endsWith('.js'));
+    const files = fs.readdirSync(DATA_DIR).filter(file => file.endsWith('.json'));
     
     for (const file of files) {
-      const collectionName = file.replace('.js', '');
+      const collectionName = file.replace('.json', '');
       const filePath = path.join(DATA_DIR, file);
       
       console.log(`\n⏳ Traitement du fichier : ${file}`);
