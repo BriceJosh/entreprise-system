@@ -51,11 +51,14 @@ if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Forc
 Write-Host "[INFO] Fichier de configuration trouve : $targetConfig" -ForegroundColor Gray
 Write-Host "[INFO] Dossier des donnees : $dataDir" -ForegroundColor Gray
 
-# 2. Reecriture propre du fichier mongod.cfg avec la replication (guillemets simples pour eviter l'echappement YAML des backslashes)
+# 2. Reecriture propre du fichier mongod.cfg avec la replication et limitation de cache RAM
 $cleanYaml = @"
 # mongod.cfg pour Entreprise System
 storage:
   dbPath: '$dataDir'
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 1
 
 systemLog:
   destination: file
