@@ -123,6 +123,25 @@ else {
 $mongoPort = Test-NetConnection -ComputerName 127.0.0.1 -Port 27017 -WarningAction SilentlyContinue
 if ($mongoPort.TcpTestSucceeded) {
     Write-Host "[OK] MongoDB repond sur 127.0.0.1:27017." -ForegroundColor Green
+
+    # Verification du Replica Set (rs0) indispensable pour le temps reel
+    $rsCheck = & node -e "const { MongoClient } = require('./Backend/node_modules/mongodb'); (async () => { try { const c = new MongoClient('mongodb://127.0.0.1:27017/?directConnection=true', { serverSelectionTimeoutMS: 3000 }); await c.connect(); const s = await c.db().admin().command({ replSetGetStatus: 1 }); console.log('RS_OK:' + s.set + ':' + s.myState); await c.close(); process.exit(0); } catch(e) { console.log('RS_ERR:' + e.message); process.exit(0); } })()" 2>$null
+    if ($rsCheck -match "RS_OK:([^:]+):1") {
+        Write-Host "[OK] Replica Set '$($Matches[1])' ACTIF et PRIMARY (Change Streams temps reel prets)." -ForegroundColor Green
+    }
+    elseif ($rsCheck -match "RS_OK:([^:]+):(\d+)") {
+        Write-Host "[ATTENTION] Replica Set '$($Matches[1])' actif mais etat $($Matches[2]) (attendu: 1 PRIMARY)." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "[ATTENTION] Replica Set rs0 NON ACTIF (Change Streams / Suivi en direct indisponibles)." -ForegroundColor Yellow
+        if ($Reparer) {
+            Write-Host "[ACTION] Initialisation du Replica Set..." -ForegroundColor Green
+            powershell -ExecutionPolicy Bypass -File ".\scripts\setup-mongodb-replicaset.ps1"
+        }
+        else {
+            Write-Host "[SOLUTION] Activez le Replica Set avec : powershell -ExecutionPolicy Bypass -File .\scripts\setup-mongodb-replicaset.ps1" -ForegroundColor Yellow
+        }
+    }
 }
 else {
     Write-Host "[PROBLEME] MongoDB ne repond PAS sur le port 27017." -ForegroundColor Red
