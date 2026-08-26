@@ -202,9 +202,69 @@ async function runAudit() {
   }
 
   // -----------------------------------------------------------------
-  // 3. TEST RÉEL DES CHANGE STREAMS (Insert, Update, Delete)
+  // 3. TEST INTÉGRITÉ DES DONNÉES & COLLECTIONS
   // -----------------------------------------------------------------
-  logStep('3/6', 'Test de fonctionnement en direct des Change Streams MongoDB');
+  logStep('3/6', 'Contrôle des collections et des volumes de données');
+  if (summary.mongoConnect) {
+    try {
+      const collections = await dbConnection.db.listCollections().toArray();
+      const colNames = collections.map((c) => c.name);
+
+      const attendues = [
+        'users',
+        'sites',
+        'activites',
+        'stocks',
+        'depenses',
+        'credits',
+        'depotbanques',
+        'recus',
+        'stockmouvements'
+      ];
+
+      const manquantes = attendues.filter((c) => !colNames.includes(c));
+      if (manquantes.length > 0) {
+        logInfo(`Collections optionnelles non encore initialisées : ${manquantes.join(', ')}`);
+      }
+
+      console.log(`  Collections présentes (${colNames.length}) :`);
+      let totalDocuments = 0;
+      let hasUsers = false;
+      let hasSites = false;
+
+      for (const col of colNames) {
+        if (col.startsWith('system.') || col.startsWith('_audit_')) continue;
+        const count = await dbConnection.db.collection(col).countDocuments();
+        totalDocuments += count;
+        const statusIcon = count > 0 ? colors.green('●') : colors.yellow('○');
+        console.log(`   ${statusIcon} ${col.padEnd(22)} : ${String(count).padStart(6)} doc(s)`);
+        if (col === 'users' && count > 0) hasUsers = true;
+        if (col === 'sites' && count > 0) hasSites = true;
+      }
+
+      if (totalDocuments > 0) {
+        logOk(`Base "entreprise_db" contient ${totalDocuments} documents au total.`);
+        if (hasUsers && hasSites) {
+          logOk('Comptes utilisateurs et Agences (Sites) bien présents.');
+          summary.collections = true;
+        } else {
+          logWarn('Attention : La collection "users" ou "sites" semble vide. Pensez à réimporter ou créer un admin.');
+          summary.collections = true;
+        }
+      } else {
+        logWarn('La base de données semble vide (aucun document trouvé).');
+      }
+    } catch (err) {
+      logFail(`Erreur lors du listage des collections : ${err.message}`);
+    }
+  } else {
+    logWarn('Test ignoré (connexion MongoDB non établie).');
+  }
+
+  // -----------------------------------------------------------------
+  // 4. TEST RÉEL DES CHANGE STREAMS (Insert, Update, Delete)
+  // -----------------------------------------------------------------
+  logStep('4/6', 'Test de fonctionnement en direct des Change Streams MongoDB');
   if (summary.mongoConnect && summary.replicaSet) {
     let testCollection = null;
     let changeStream = null;
@@ -269,66 +329,6 @@ async function runAudit() {
     }
   } else {
     logWarn('Test Change Streams impossible car le Replica Set n\'est pas actif.');
-  }
-
-  // -----------------------------------------------------------------
-  // 4. TEST INTÉGRITÉ DES DONNÉES & COLLECTIONS
-  // -----------------------------------------------------------------
-  logStep('4/6', 'Contrôle des collections et des volumes de données');
-  if (summary.mongoConnect) {
-    try {
-      const collections = await dbConnection.db.listCollections().toArray();
-      const colNames = collections.map((c) => c.name);
-
-      const attendues = [
-        'users',
-        'sites',
-        'activites',
-        'stocks',
-        'depenses',
-        'credits',
-        'depotbanques',
-        'recus',
-        'stockmouvements'
-      ];
-
-      const manquantes = attendues.filter((c) => !colNames.includes(c));
-      if (manquantes.length > 0) {
-        logInfo(`Collections optionnelles non encore initialisées : ${manquantes.join(', ')}`);
-      }
-
-      console.log(`  Collections présentes (${colNames.length}) :`);
-      let totalDocuments = 0;
-      let hasUsers = false;
-      let hasSites = false;
-
-      for (const col of colNames) {
-        if (col.startsWith('system.') || col.startsWith('_audit_')) continue;
-        const count = await dbConnection.db.collection(col).countDocuments();
-        totalDocuments += count;
-        const statusIcon = count > 0 ? colors.green('●') : colors.yellow('○');
-        console.log(`   ${statusIcon} ${col.padEnd(22)} : ${String(count).padStart(6)} doc(s)`);
-        if (col === 'users' && count > 0) hasUsers = true;
-        if (col === 'sites' && count > 0) hasSites = true;
-      }
-
-      if (totalDocuments > 0) {
-        logOk(`Base "entreprise_db" contient ${totalDocuments} documents au total.`);
-        if (hasUsers && hasSites) {
-          logOk('Comptes utilisateurs et Agences (Sites) bien présents.');
-          summary.collections = true;
-        } else {
-          logWarn('Attention : La collection "users" ou "sites" semble vide. Pensez à réimporter ou créer un admin.');
-          summary.collections = true;
-        }
-      } else {
-        logWarn('La base de données semble vide (aucun document trouvé).');
-      }
-    } catch (err) {
-      logFail(`Erreur lors du listage des collections : ${err.message}`);
-    }
-  } else {
-    logWarn('Test ignoré (connexion MongoDB non établie).');
   }
 
   // -----------------------------------------------------------------
@@ -431,8 +431,8 @@ async function runAudit() {
 
   console.log(`  1. Connexion MongoDB   : ${summary.mongoConnect ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
   console.log(`  2. Replica Set (rs0)   : ${summary.replicaSet ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
-  console.log(`  3. Change Streams      : ${summary.changeStreams ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
-  console.log(`  4. Données/Collections : ${summary.collections ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
+  console.log(`  3. Données/Collections : ${summary.collections ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
+  console.log(`  4. Change Streams      : ${summary.changeStreams ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
   console.log(`  5. API HTTP (/health)  : ${summary.apiHealth ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
   console.log(`  6. WebSocket Socket.IO : ${summary.socketIoAuth ? colors.green('SUCCÈS ✔') : colors.red('ÉCHEC ✖')}`);
 
