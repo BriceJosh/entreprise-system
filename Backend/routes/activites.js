@@ -148,7 +148,11 @@ router.post('/', verifyToken, async (req, res) => {
       prix_unitaire,
       option_vente,
       produit_id,
-      article_id
+      article_id,
+      longueur,
+      largeur,
+      surface_m2,
+      prix_m2
     } = req.body;
 
     /*
@@ -644,6 +648,19 @@ router.post('/', verifyToken, async (req, res) => {
       typeOperation === 'impression'
     ) {
 
+      const parsedLongueur = longueur != null && longueur !== '' ? Number(longueur) : null;
+      const parsedLargeur = largeur != null && largeur !== '' ? Number(largeur) : null;
+      const parsedPrixM2 = prix_m2 != null && prix_m2 !== '' ? Number(prix_m2) : null;
+      let calculatedSurface = null;
+      let finalPrixUnitaire = prixUnitaire;
+
+      if (parsedLongueur > 0 && parsedLargeur > 0) {
+        calculatedSurface = Number((parsedLongueur * parsedLargeur).toFixed(4));
+        if (parsedPrixM2 > 0 && (!finalPrixUnitaire || finalPrixUnitaire === 0)) {
+          finalPrixUnitaire = Math.round(calculatedSurface * parsedPrixM2);
+        }
+      }
+
       const nouvelleActivite =
         new Activite({
 
@@ -663,7 +680,19 @@ router.post('/', verifyToken, async (req, res) => {
             qteSaisie,
 
           prix_unitaire:
-            prixUnitaire,
+            finalPrixUnitaire,
+
+          longueur:
+            parsedLongueur,
+
+          largeur:
+            parsedLargeur,
+
+          surface_m2:
+            calculatedSurface,
+
+          prix_m2:
+            parsedPrixM2,
 
           site_id:
             siteId,

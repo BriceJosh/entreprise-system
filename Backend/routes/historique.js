@@ -426,6 +426,10 @@ async function afficherHistorique(req, res) {
         prix_unitaire: Number(item.prix_unitaire) || 0,
         montant: Number(item.montant_total) || 0,
         sens: "entree",
+        longueur: item.longueur || null,
+        largeur: item.largeur || null,
+        surface_m2: item.surface_m2 || null,
+        prix_m2: item.prix_m2 || null,
       });
     });
 

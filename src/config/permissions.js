@@ -36,6 +36,8 @@ export const SERVICE_LABELS = Object.freeze({
 const ROLE_PERMISSIONS = {
   services: [
     PERMISSIONS.ACTIVITE_SERVICE,
+    PERMISSIONS.VENTE,
+    PERMISSIONS.STOCK_LECTURE,
     PERMISSIONS.DEPENSE,
     PERMISSIONS.DEPOT_BANQUE,
     PERMISSIONS.CREDIT_GESTION,
@@ -44,6 +46,8 @@ const ROLE_PERMISSIONS = {
   ],
   secretaire_1: [
     PERMISSIONS.ACTIVITE_SERVICE,
+    PERMISSIONS.VENTE,
+    PERMISSIONS.STOCK_LECTURE,
     PERMISSIONS.DEPENSE,
     PERMISSIONS.DEPOT_BANQUE,
     PERMISSIONS.CREDIT_GESTION,
@@ -59,6 +63,7 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.CAISSE_PROPRE
   ],
   secretaire_3: [
+    PERMISSIONS.ACTIVITE_SERVICE,
     PERMISSIONS.VENTE,
     PERMISSIONS.STOCK_LECTURE,
     PERMISSIONS.STOCK_GESTION,
@@ -82,7 +87,7 @@ const ROLE_PERMISSIONS = {
   polyvalent: Object.values(PERMISSIONS)
 };
 
-const ROLE_SERVICES = {
+export const ROLE_SERVICES = {
   services: Object.values(SERVICE_TYPES),
   secretaire_1: [
     SERVICE_TYPES.IMPRESSION_BACHE,
@@ -104,16 +109,109 @@ const ROLE_SERVICES = {
   polyvalent: Object.values(SERVICE_TYPES)
 };
 
+function getSiteMotif(site, email, username) {
+  const str = `${site?.nom || ''} ${site?.ville || ''} ${email || ''} ${username || ''}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (str.includes('adetikope')) return 'adetikope';
+  if (str.includes('difakpota')) return 'difakpota';
+  return 'tabligbo';
+}
+
 export function getPermissions(profil) {
   if (profil?.role === 'directeur' || profil?.role === 'admin') {
     return Object.values(PERMISSIONS);
   }
 
-  if (Array.isArray(profil?.permissions)) {
+  if (Array.isArray(profil?.permissions) && profil.permissions.length > 0) {
     return profil.permissions;
   }
 
-  return ROLE_PERMISSIONS[profil?.poste || 'services'] || [];
+  const siteMotif = getSiteMotif(profil?.site_id || profil?.site, profil?.email, profil?.username);
+  const p = String(profil?.poste || 'services').trim().toLowerCase();
+
+  // 1. Secrétaire 1 Adétikopé -> SERVICES uniquement (PAS de vente, PAS de stock)
+  if (siteMotif === 'adetikope') {
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  // 2. Secrétaire 1 Difakpota -> Services + Vente
+  if (siteMotif === 'difakpota') {
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.VENTE,
+      PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  // 3. Secrétariats Tabligbo
+  if (p === 'secretaire_1') {
+    // Secrétaire 1 Tabligbo -> SERVICES uniquement (AUCUN accès vente ni stock)
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  if (p === 'secretaire_2') {
+    // Secrétaire 2 Tabligbo -> SERVICES uniquement
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  if (p === 'secretaire_3') {
+    // Secrétaire 3 Tabligbo -> VENTES & STOCKS uniquement (AUCUN service)
+    return [
+      PERMISSIONS.VENTE,
+      PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.STOCK_GESTION,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  if (p === 'secretaire_4') {
+    // Secrétaire 4 Tabligbo -> Papier
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.VENTE,
+      PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.STOCK_PAPIER_GESTION,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  return ROLE_PERMISSIONS[p] || [];
 }
 
 export function hasPermission(profil, permission) {
@@ -125,11 +223,67 @@ export function getServiceTypes(profil) {
     return Object.values(SERVICE_TYPES);
   }
 
-  if (Array.isArray(profil?.serviceTypes)) {
+  if (Array.isArray(profil?.serviceTypes) && profil.serviceTypes.length > 0) {
     return profil.serviceTypes;
   }
 
-  return ROLE_SERVICES[profil?.poste || 'services'] || [];
+  const siteMotif = getSiteMotif(profil?.site_id || profil?.site, profil?.email, profil?.username);
+  const p = String(profil?.poste || 'services').trim().toLowerCase();
+
+  // 1. Difakpota
+  if (siteMotif === 'difakpota') {
+    return [
+      SERVICE_TYPES.PHOTOCOPIE,
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_BACHE,
+      SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  // 2. Adétikopé
+  if (siteMotif === 'adetikope') {
+    return [
+      SERVICE_TYPES.PHOTOCOPIE,
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_BACHE,
+      SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+      SERVICE_TYPES.IMPRESSION_DTF,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  // 3. Tabligbo
+  if (p === 'secretaire_1') {
+    return [
+      SERVICE_TYPES.PHOTOCOPIE,
+      SERVICE_TYPES.IMPRESSION_BACHE,
+      SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  if (p === 'secretaire_2') {
+    return [
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.PLASTIFICATION,
+      SERVICE_TYPES.SAISIE,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  if (p === 'secretaire_3') {
+    return [];
+  }
+
+  if (p === 'secretaire_4') {
+    return [
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  return Object.values(SERVICE_TYPES);
 }
 
 export function canDoService(profil, serviceType) {

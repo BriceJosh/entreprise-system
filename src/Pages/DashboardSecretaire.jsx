@@ -840,12 +840,23 @@ export default function DashboardSecretaire({ profil }) {
                         </td>
 
                         <td className="p-3 font-semibold text-gray-900">
-
-                          {act.designation ||
-                            act.motif ||
-                            act.description ||
-                            'Opération'}
-
+                          <div>
+                            {act.designation ||
+                              act.motif ||
+                              act.description ||
+                              'Opération'}
+                          </div>
+                          {act.longueur != null && act.largeur != null && Number(act.longueur) > 0 && Number(act.largeur) > 0 && (
+                            <div className="text-[11px] font-normal text-blue-600 mt-0.5">
+                              📐 {act.longueur}m × {act.largeur}m ({act.surface_m2 || (act.longueur * act.largeur).toFixed(2)} m²)
+                              {act.prix_m2 ? ` à ${Number(act.prix_m2).toLocaleString()} F/m²` : ''}
+                            </div>
+                          )}
+                          {act.description && (!act.longueur || !act.largeur) && (
+                            <div className="text-[11px] font-normal text-gray-400 mt-0.5">
+                              {act.description}
+                            </div>
+                          )}
                         </td>
 
                         <td className="p-3 text-center font-bold">

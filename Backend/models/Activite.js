@@ -91,7 +91,8 @@ const activiteSchema = new mongoose.Schema(
      *
      * Attention :
      * "unitaire" signifie ici le prix d'une unité du mode
-     * choisi par le client.
+     * choisi par le client (ou le prix unitaire d'une pièce
+     * d'impression calculé selon sa surface).
      *
      * Exemple :
      *
@@ -105,6 +106,40 @@ const activiteSchema = new mongoose.Schema(
       type: Number,
       min: [0, 'Le prix unitaire ne peut pas être négatif'],
       default: 0
+    },
+
+    /*
+     * =========================================================
+     * DIMENSIONS & CALCUL AU M² (Pour Bâches, Autocollants...)
+     * =========================================================
+     *
+     * Permet le calcul automatique du prix en fonction des dimensions
+     * Longueur (m) × Largeur (m) = Surface (m²)
+     * Prix unitaire = Surface (m²) × Prix au m²
+     */
+
+    longueur: {
+      type: Number,
+      min: [0, 'La longueur ne peut pas être négative'],
+      default: null
+    },
+
+    largeur: {
+      type: Number,
+      min: [0, 'La largeur ne peut pas être négative'],
+      default: null
+    },
+
+    surface_m2: {
+      type: Number,
+      min: [0, 'La surface ne peut pas être négative'],
+      default: null
+    },
+
+    prix_m2: {
+      type: Number,
+      min: [0, 'Le prix au m² ne peut pas être négatif'],
+      default: null
     },
 
     /*
@@ -247,9 +282,22 @@ activiteSchema.index({
 activiteSchema.pre('save', function () {
   if (this.type !== 'depense') {
     const qte = Number(this.quantite) || 0;
-    const prix = Number(this.prix_unitaire) || 0;
 
-    this.montant_total = qte * prix;
+    // Calcul automatique de la surface et du prix au m² si les dimensions sont fournies
+    if (
+      this.longueur != null &&
+      this.largeur != null &&
+      Number(this.longueur) > 0 &&
+      Number(this.largeur) > 0
+    ) {
+      this.surface_m2 = Number((Number(this.longueur) * Number(this.largeur)).toFixed(4));
+      if (this.prix_m2 != null && Number(this.prix_m2) > 0 && (!this.prix_unitaire || this.prix_unitaire === 0)) {
+        this.prix_unitaire = Math.round(this.surface_m2 * Number(this.prix_m2));
+      }
+    }
+
+    const prix = Number(this.prix_unitaire) || 0;
+    this.montant_total = Math.round(qte * prix);
   }
 });
 

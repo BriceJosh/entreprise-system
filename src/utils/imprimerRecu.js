@@ -11,13 +11,19 @@
 export function imprimerRecu(recu, infosEntreprise = {}) {
   const lignesHtml = (recu.lignes || [])
     .map(
-      (ligne) => `
+      (ligne) => {
+        const dimInfo = (ligne.longueur && ligne.largeur)
+          ? `<br/><span style="font-size:9px;color:#333;font-style:italic">Dim: ${ligne.longueur}m × ${ligne.largeur}m (${ligne.surface_m2 || (ligne.longueur * ligne.largeur).toFixed(2)} m²)</span>`
+          : (ligne.description ? `<br/><span style="font-size:9px;color:#555">${escapeHtml(ligne.description)}</span>` : '');
+
+        return `
         <tr>
-          <td>${escapeHtml(ligne.designation)}</td>
-          <td class="center">${ligne.quantite} ${escapeHtml(ligne.option_vente)}</td>
+          <td>${escapeHtml(ligne.designation)}${dimInfo}</td>
+          <td class="center">${ligne.quantite} ${escapeHtml(ligne.option_vente || 'Pièce')}</td>
           <td class="right">${formatFcfa(ligne.prix_unitaire)}</td>
           <td class="right">${formatFcfa(ligne.montant)}</td>
-        </tr>`,
+        </tr>`;
+      }
     )
     .join("");
 

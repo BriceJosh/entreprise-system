@@ -140,20 +140,17 @@ router.post('/', verifyToken, async (req, res) => {
     let montantTotal = 0;
 
     for (const ligne of lignes) {
+      const typeLigne = (ligne?.type === 'impression' || ligne?.type === 'service') ? 'impression' : 'vente';
+
       const designation = String(
         ligne?.designation || ''
       ).trim();
 
       const quantiteSaisie = Number(ligne?.quantite);
 
-      const optionVente =
-        normaliserOptionVente(
-          ligne?.option_vente
-        );
-
       if (!designation) {
         throw new Error(
-          'Chaque ligne doit désigner un article.'
+          'Chaque ligne doit avoir une désignation.'
         );
       }
 
@@ -167,10 +164,47 @@ router.post('/', verifyToken, async (req, res) => {
       }
 
       /*
-       * ---------------------------------------------------
-       * RECHERCHE DE L'ARTICLE DANS LE STOCK
-       * ---------------------------------------------------
+       * =====================================================
+       * TRAITEMENT LIGNE DE SERVICE (IMPRESSION / GRAND FORMAT)
+       * =====================================================
        */
+      if (typeLigne === 'impression') {
+        const prixUnitaire = Number(ligne?.prix_unitaire) || 0;
+        const numLongueur = ligne?.longueur != null && ligne?.longueur !== '' ? Number(ligne.longueur) : null;
+        const numLargeur = ligne?.largeur != null && ligne?.largeur !== '' ? Number(ligne.largeur) : null;
+        const numSurface = ligne?.surface_m2 != null && ligne?.surface_m2 !== '' ? Number(ligne.surface_m2) : (numLongueur && numLargeur ? Number((numLongueur * numLargeur).toFixed(4)) : null);
+        const numPrixM2 = ligne?.prix_m2 != null && ligne?.prix_m2 !== '' ? Number(ligne.prix_m2) : null;
+        const description = String(ligne?.description || '').trim();
+
+        const montantLigne = Math.round(quantiteSaisie * prixUnitaire);
+        montantTotal += montantLigne;
+
+        lignesRecu.push({
+          type: 'impression',
+          designation,
+          description,
+          quantite: quantiteSaisie,
+          option_vente: 'Service',
+          prix_unitaire: prixUnitaire,
+          montant: montantLigne,
+          longueur: numLongueur,
+          largeur: numLargeur,
+          surface_m2: numSurface,
+          prix_m2: numPrixM2
+        });
+
+        continue;
+      }
+
+      /*
+       * =====================================================
+       * TRAITEMENT LIGNE DE VENTE (STOCK)
+       * =====================================================
+       */
+      const optionVente =
+        normaliserOptionVente(
+          ligne?.option_vente
+        );
 
       let articleStock =
         stocksModifies.get(designation.toLowerCase());
@@ -178,7 +212,6 @@ router.post('/', verifyToken, async (req, res) => {
       if (!articleStock) {
         articleStock = await Stock.findOne({
           site_id: siteId,
-
           nom_article: {
             $regex: new RegExp(
               `^${escapeRegex(designation)}$`,
@@ -194,12 +227,6 @@ router.post('/', verifyToken, async (req, res) => {
         );
       }
 
-      /*
-       * ---------------------------------------------------
-       * PRIX DEPUIS LE STOCK
-       * ---------------------------------------------------
-       */
-
       const prixUnitaire =
         articleStock.obtenirPrixParOption(
           optionVente
@@ -211,26 +238,11 @@ router.post('/', verifyToken, async (req, res) => {
         );
       }
 
-      /*
-       * ---------------------------------------------------
-       * CONVERSION EN UNITÉS DE BASE
-       * ---------------------------------------------------
-       */
-
       const quantiteUnites =
         articleStock.calculerQuantiteEnPieces(
           quantiteSaisie,
           optionVente
         );
-
-      /*
-       * ---------------------------------------------------
-       * VÉRIFICATION DU STOCK DISPONIBLE
-       * ---------------------------------------------------
-       *
-       * On tient compte des quantités déjà réservées par
-       * les lignes précédentes du même reçu.
-       */
 
       const stockActuel =
         Number(articleStock.quantite);
@@ -240,12 +252,6 @@ router.post('/', verifyToken, async (req, res) => {
           `Stock insuffisant pour "${articleStock.nom_article}" : il reste ${stockActuel} unité(s).`
         );
       }
-
-      /*
-       * ---------------------------------------------------
-       * DÉCRÉMENTATION
-       * ---------------------------------------------------
-       */
 
       articleStock.quantite =
         Math.max(
@@ -258,27 +264,17 @@ router.post('/', verifyToken, async (req, res) => {
         articleStock
       );
 
-      /*
-       * ---------------------------------------------------
-       * MONTANT DE LA LIGNE
-       * ---------------------------------------------------
-       */
-
       const montantLigne =
         quantiteSaisie * prixUnitaire;
 
       montantTotal += montantLigne;
 
       lignesRecu.push({
-        designation:
-          articleStock.nom_article,
-
+        type: 'vente',
+        designation: articleStock.nom_article,
         quantite: quantiteSaisie,
-
         option_vente: optionVente,
-
         prix_unitaire: prixUnitaire,
-
         montant: montantLigne
       });
     }
@@ -351,45 +347,53 @@ router.post('/', verifyToken, async (req, res) => {
 
     /*
      * =====================================================
-     * CRÉATION DES ACTIVITÉS (VENTES)
+     * CRÉATION DES ACTIVITÉS (VENTES & IMPRESSIONS / SERVICES)
      * =====================================================
      */
 
     for (const ligne of lignesRecu) {
-      const activite = new Activite({
-        type: 'vente',
+      let activite;
 
-        designation: ligne.designation,
-
-        quantite: ligne.quantite,
-
-        quantite_unites:
-          ligne.quantite *
-          (optionVenteMultiplicateur(
-            stocksModifies,
-            ligne.designation,
-            ligne.option_vente
-          ) || 1),
-
-        prix_unitaire:
-          ligne.prix_unitaire,
-
-        montant_total: ligne.montant,
-
-        option_vente:
-          ligne.option_vente,
-
-        recu_id: recu._id,
-
-        site_id: siteId,
-
-        user_id: userId
-      });
+      if (ligne.type === 'impression') {
+        activite = new Activite({
+          type: 'impression',
+          designation: ligne.designation,
+          description: ligne.description || '',
+          quantite: ligne.quantite,
+          quantite_unites: ligne.quantite,
+          prix_unitaire: ligne.prix_unitaire,
+          montant_total: ligne.montant,
+          longueur: ligne.longueur,
+          largeur: ligne.largeur,
+          surface_m2: ligne.surface_m2,
+          prix_m2: ligne.prix_m2,
+          recu_id: recu._id,
+          site_id: siteId,
+          user_id: userId
+        });
+      } else {
+        activite = new Activite({
+          type: 'vente',
+          designation: ligne.designation,
+          quantite: ligne.quantite,
+          quantite_unites:
+            ligne.quantite *
+            (optionVenteMultiplicateur(
+              stocksModifies,
+              ligne.designation,
+              ligne.option_vente
+            ) || 1),
+          prix_unitaire: ligne.prix_unitaire,
+          montant_total: ligne.montant,
+          option_vente: ligne.option_vente,
+          recu_id: recu._id,
+          site_id: siteId,
+          user_id: userId
+        });
+      }
 
       await activite.save();
-
       activitesCreees.push(activite);
-
       ligne.activite_id = activite._id;
     }
 

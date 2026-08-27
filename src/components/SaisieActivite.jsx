@@ -58,6 +58,42 @@ export default function SaisieActivite({
     useState(1);
 
   /*
+   * =========================================================
+   * DIMENSIONS & CALCUL AU M² (Bâches, Autocollants...)
+   * =========================================================
+   */
+  const [longueur, setLongueur] = useState('');
+  const [largeur, setLargeur] = useState('');
+  const [prixM2, setPrixM2] = useState('');
+
+  const isServiceGrandFormat = useMemo(() => {
+    return (
+      serviceType === 'impression_bache' ||
+      serviceType === 'impression_autocollant' ||
+      serviceType === 'impression_dtf'
+    );
+  }, [serviceType]);
+
+  const surfaceCalculee = useMemo(() => {
+    const l = parseFloat(String(longueur).replace(',', '.'));
+    const w = parseFloat(String(largeur).replace(',', '.'));
+    if (!isNaN(l) && !isNaN(w) && l > 0 && w > 0) {
+      return Number((l * w).toFixed(4));
+    }
+    return 0;
+  }, [longueur, largeur]);
+
+  useEffect(() => {
+    if (isServiceGrandFormat && surfaceCalculee > 0 && prixM2) {
+      const pm2 = parseFloat(String(prixM2).replace(',', '.'));
+      if (!isNaN(pm2) && pm2 > 0) {
+        const calPrixUnitaire = Math.round(surfaceCalculee * pm2);
+        setPrixUnitaire(calPrixUnitaire);
+      }
+    }
+  }, [isServiceGrandFormat, surfaceCalculee, prixM2]);
+
+  /*
     * IMPORTANT :
     * Pour les VENTES, le prix n'est plus saisi.
     * Il est récupéré automatiquement depuis le stock
@@ -327,11 +363,12 @@ export default function SaisieActivite({
     setQuantite(1);
 
     /*
-     * Le prix est vidé pour que la secrétaire
-     * saisisse le prix de la prochaine vente.
+     * Le prix et les dimensions sont vidés.
      */
-
     setPrixUnitaire('');
+    setLongueur('');
+    setLargeur('');
+    setPrixM2('');
 
     setOptionVente('Pièce');
 
@@ -342,10 +379,10 @@ export default function SaisieActivite({
   }
 
   /*
-    * =========================================================
-    * AJOUTER LA VENTE AU PANIER
-    * =========================================================
-    */
+   * =========================================================
+   * AJOUTER UNE VENTE OU UN SERVICE AU PANIER DU REÇU
+   * =========================================================
+   */
 
   function ajouterAuPanier() {
     setMessage({
@@ -353,55 +390,88 @@ export default function SaisieActivite({
       text: ''
     });
 
-    if (!designation.trim()) {
-      throw new Error(
-        'Sélectionnez un article à vendre.'
-      );
-    }
-
-    if (
-      !quantite ||
-      Number(quantite) <= 0
-    ) {
-      throw new Error(
-        'La quantité doit être supérieure à 0.'
-      );
-    }
-
-    if (!stockSelectionne) {
-      throw new Error(
-        'Article introuvable dans le stock.'
-      );
-    }
-
-    if (!prixVenteDuStock || prixVenteDuStock <= 0) {
-      throw new Error(
-        `Aucun prix de vente configuré pour "${designation}" en mode ${optionVente}.`
-      );
-    }
-
-    setPanier(precedent => [
-      ...precedent,
-      {
-        designation: designation.trim(),
-
-        quantite: Number(quantite),
-
-        option_vente: optionVente,
-
-        prix_unitaire: prixVenteDuStock,
-
-        montant:
-          Number(quantite) * prixVenteDuStock
+    if (typeOperation === 'vente') {
+      if (!designation.trim()) {
+        throw new Error('Sélectionnez un article à vendre.');
       }
-    ]);
 
-    /*
-     * On garde l'article sélectionné pour faciliter
-     * les ventes répétées, mais on remet la quantité à 1.
-     */
+      if (!quantite || Number(quantite) <= 0) {
+        throw new Error('La quantité doit être supérieure à 0.');
+      }
 
-    setQuantite(1);
+      if (!stockSelectionne) {
+        throw new Error('Article introuvable dans le stock.');
+      }
+
+      if (!prixVenteDuStock || prixVenteDuStock <= 0) {
+        throw new Error(
+          `Aucun prix de vente configuré pour "${designation}" en mode ${optionVente}.`
+        );
+      }
+
+      setPanier(precedent => [
+        ...precedent,
+        {
+          idTemporaire: Date.now() + Math.random(),
+          type: 'vente',
+          designation: designation.trim(),
+          quantite: Number(quantite),
+          option_vente: optionVente,
+          prix_unitaire: prixVenteDuStock,
+          montant: Number(quantite) * prixVenteDuStock
+        }
+      ]);
+
+      setQuantite(1);
+    } else if (typeOperation === 'impression') {
+      if (!serviceType) {
+        throw new Error('Sélectionnez un type de service.');
+      }
+
+      if (!quantite || Number(quantite) <= 0) {
+        throw new Error('La quantité doit être supérieure à 0.');
+      }
+
+      const pu = Number(prixUnitaire);
+      if (!Number.isFinite(pu) || pu <= 0) {
+        throw new Error('Indiquez un prix unitaire valide (ou renseignez les dimensions et le prix/m²).');
+      }
+
+      const numLongueur = longueur ? parseFloat(String(longueur).replace(',', '.')) : null;
+      const numLargeur = largeur ? parseFloat(String(largeur).replace(',', '.')) : null;
+      const numPrixM2 = prixM2 ? parseFloat(String(prixM2).replace(',', '.')) : null;
+
+      let descFinale = description.trim();
+      if (numLongueur > 0 && numLargeur > 0 && !descFinale) {
+        descFinale = `${numLongueur}m × ${numLargeur}m (${surfaceCalculee} m²)`;
+      }
+
+      setPanier(precedent => [
+        ...precedent,
+        {
+          idTemporaire: Date.now() + Math.random(),
+          type: 'impression',
+          service_type: serviceType,
+          designation: SERVICE_LABELS[serviceType] || serviceType,
+          description: descFinale,
+          quantite: Number(quantite),
+          option_vente: 'Service',
+          prix_unitaire: pu,
+          montant: Math.round(Number(quantite) * pu),
+          longueur: numLongueur > 0 ? numLongueur : null,
+          largeur: numLargeur > 0 ? numLargeur : null,
+          surface_m2: surfaceCalculee > 0 ? surfaceCalculee : null,
+          prix_m2: numPrixM2 > 0 ? numPrixM2 : null
+        }
+      ]);
+
+      setQuantite(1);
+      setDescription('');
+      setLongueur('');
+      setLargeur('');
+      setPrixM2('');
+      setPrixUnitaire('');
+    }
   }
 
   /*
@@ -665,6 +735,15 @@ export default function SaisieActivite({
         endpoint =
           `${BACKEND_URL}/api/activites`;
 
+        const numLongueur = longueur ? parseFloat(String(longueur).replace(',', '.')) : null;
+        const numLargeur = largeur ? parseFloat(String(largeur).replace(',', '.')) : null;
+        const numPrixM2 = prixM2 ? parseFloat(String(prixM2).replace(',', '.')) : null;
+
+        let descFinale = description;
+        if (numLongueur > 0 && numLargeur > 0 && (!descFinale || descFinale.trim() === '')) {
+          descFinale = `Dim: ${numLongueur}m × ${numLargeur}m (${surfaceCalculee} m²)`;
+        }
+
         payload = {
           type: 'impression',
 
@@ -676,13 +755,18 @@ export default function SaisieActivite({
               serviceType
             ] || serviceType,
 
-          description,
+          description: descFinale,
 
           quantite:
             Number(quantite),
 
           prix_unitaire:
-            Number(prixUnitaire)
+            Number(prixUnitaire),
+
+          longueur: numLongueur > 0 ? numLongueur : null,
+          largeur: numLargeur > 0 ? numLargeur : null,
+          surface_m2: surfaceCalculee > 0 ? surfaceCalculee : null,
+          prix_m2: numPrixM2 > 0 ? numPrixM2 : null
         };
       }
 
@@ -902,7 +986,7 @@ export default function SaisieActivite({
                     e.target.value
                   )
                 }
-                className="w-full p-3 rounded-xl border bg-gray-50 text-sm"
+                className="w-full p-3 rounded-xl border bg-gray-50 text-sm font-semibold"
               >
                 {serviceTypes.map(type => (
                   <option
@@ -916,9 +1000,86 @@ export default function SaisieActivite({
               </select>
             </div>
 
+            {/* Champs de dimensions pour Bâches, Autocollants et Grand Format */}
+            {isServiceGrandFormat && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-900 flex items-center gap-1">
+                    📐 Dimensions de l'impression (au m²)
+                  </span>
+                  {surfaceCalculee > 0 && (
+                    <span className="text-xs bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full">
+                      {surfaceCalculee} m²
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Longueur (m)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={longueur}
+                      onChange={e => setLongueur(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-white text-sm"
+                      placeholder="Ex: 0.5 ou 2.0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Largeur (m)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={largeur}
+                      onChange={e => setLargeur(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-white text-sm"
+                      placeholder="Ex: 0.5 ou 1.2"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                    Prix au m² (FCFA)
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={prixM2}
+                    onChange={e => setPrixM2(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border bg-white text-sm font-semibold"
+                    placeholder="Ex: 1500"
+                  />
+                </div>
+
+                {surfaceCalculee > 0 && (
+                  <div className="text-xs text-blue-800 bg-white p-2.5 rounded-lg border border-blue-100 flex flex-col gap-1">
+                    <div className="flex justify-between">
+                      <span>Calcul surface :</span>
+                      <span className="font-semibold">{longueur}m × {largeur}m = <strong>{surfaceCalculee} m²</strong></span>
+                    </div>
+                    {prixM2 && (
+                      <div className="flex justify-between pt-1 border-t border-blue-50 text-blue-900 font-bold">
+                        <span>Prix par exemplaire :</span>
+                        <span>{surfaceCalculee} m² × {prixM2} F = {Math.round(surfaceCalculee * Number(prixM2)).toLocaleString()} FCFA</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-2">
-                Description
+                Description / Précisions
               </label>
 
               <input
@@ -929,40 +1090,56 @@ export default function SaisieActivite({
                   )
                 }
                 className="w-full p-3 rounded-xl border bg-gray-50 text-sm"
-                placeholder="Détails facultatifs"
+                placeholder={isServiceGrandFormat ? "Ex: Oeillets, finition renforcée..." : "Détails facultatifs"}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                  Nombre d'exemplaires (Qté)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantite}
+                  onChange={e =>
+                    setQuantite(
+                      e.target.value
+                    )
+                  }
+                  className="w-full p-3 rounded-xl border bg-gray-50 text-sm font-semibold"
+                  placeholder="Quantité"
+                  required
+                />
+              </div>
 
-              <input
-                type="number"
-                min="1"
-                value={quantite}
-                onChange={e =>
-                  setQuantite(
-                    e.target.value
-                  )
-                }
-                className="w-full p-3 rounded-xl border bg-gray-50 text-sm"
-                placeholder="Quantité"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={prixUnitaire}
-                onChange={e =>
-                  setPrixUnitaire(
-                    e.target.value
-                  )
-                }
-                className="w-full p-3 rounded-xl border bg-gray-50 text-sm"
-                placeholder="Prix unitaire"
-                required
-              />
-
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                  Prix unitaire (FCFA / pièce)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={prixUnitaire}
+                  onChange={e =>
+                    setPrixUnitaire(
+                      e.target.value
+                    )
+                  }
+                  className="w-full p-3 rounded-xl border bg-gray-50 text-sm font-bold text-emerald-800"
+                  placeholder="Prix unitaire"
+                  required
+                />
+              </div>
             </div>
+
+            {Number(quantite) > 1 && Number(prixUnitaire) > 0 && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex justify-between font-bold">
+                <span>Total à encaisser ({quantite} pcs) :</span>
+                <span>{(Number(quantite) * Number(prixUnitaire)).toLocaleString()} FCFA</span>
+              </div>
+            )}
 
           </>
         )}
@@ -1138,23 +1315,23 @@ export default function SaisieActivite({
         )}
 
         {/* ===================================================
-            PANIER / REÇU EN COURS (vente)
+            PANIER / REÇU EN COURS (Partagé Vente & Services)
             =================================================== */}
 
-        {typeOperation === 'vente' && panier.length > 0 && (
-          <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-3">
+        {panier.length > 0 && (
+          <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3 mt-4 shadow-sm">
 
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-gray-600">
-                Reçu en cours ({panier.length} article{panier.length > 1 ? 's' : ''})
+              <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                <span>🧾</span> Reçu en cours ({panier.length} ligne{panier.length > 1 ? 's' : ''})
               </p>
 
               <button
                 type="button"
                 onClick={() => setPanier([])}
-                className="text-xs font-bold text-red-500 hover:underline"
+                className="text-xs font-bold text-red-500 hover:underline cursor-pointer"
               >
-                Vider
+                Vider le reçu
               </button>
             </div>
 
@@ -1162,16 +1339,28 @@ export default function SaisieActivite({
               {panier.map((ligne, index) => (
                 <li
                   key={index}
-                  className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2 border border-gray-100"
+                  className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2 border border-gray-100 shadow-xs"
                 >
-                  <span className="font-semibold text-gray-700 truncate mr-2">
-                    {ligne.designation}
-                    <span className="text-gray-400 font-normal"> — {ligne.quantite} {ligne.option_vente}</span>
-                  </span>
+                  <div className="truncate mr-2">
+                    <span className="font-semibold text-gray-800">
+                      {ligne.designation}
+                    </span>
+                    {ligne.type === 'impression' ? (
+                      <div className="text-[11px] text-blue-600 font-normal">
+                        Service • {ligne.quantite} ex.
+                        {ligne.surface_m2 ? ` • Dim: ${ligne.longueur}m × ${ligne.largeur}m (${ligne.surface_m2} m²)` : ''}
+                        {ligne.description ? ` • ${ligne.description}` : ''}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-gray-400 font-normal">
+                        Article • {ligne.quantite} {ligne.option_vente} ({ligne.prix_unitaire.toLocaleString('fr-FR')} F/unité)
+                      </div>
+                    )}
+                  </div>
 
                   <span className="flex items-center gap-2 shrink-0">
-                    <span className="font-bold text-gray-800">
-                      {ligne.montant.toLocaleString('fr-FR')} F
+                    <span className="font-bold text-gray-900">
+                      {ligne.montant.toLocaleString('fr-FR')} FCFA
                     </span>
 
                     <button
@@ -1181,7 +1370,7 @@ export default function SaisieActivite({
                           precedent.filter((_, i) => i !== index)
                         )
                       }
-                      className="text-red-400 hover:text-red-600 font-black px-1"
+                      className="text-red-400 hover:text-red-600 font-black px-1.5 py-0.5 rounded hover:bg-red-50 cursor-pointer"
                       title="Retirer cette ligne"
                     >
                       ×
@@ -1193,19 +1382,19 @@ export default function SaisieActivite({
 
             {/* SERVI PAR + NOM DU CLIENT + MONTANT PAYÉ */}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-blue-100">
 
               <input
                 value={serviPar}
                 onChange={e => setServiPar(e.target.value)}
-                className="p-3 rounded-xl border bg-white text-sm"
+                className="p-2.5 rounded-xl border bg-white text-xs font-medium"
                 placeholder="Servi par (facultatif)"
               />
 
               <input
                 value={nomClient}
                 onChange={e => setNomClient(e.target.value)}
-                className="p-3 rounded-xl border bg-white text-sm"
+                className="p-2.5 rounded-xl border bg-white text-xs font-medium"
                 placeholder="Nom du client (facultatif)"
               />
 
@@ -1214,18 +1403,33 @@ export default function SaisieActivite({
                 min="0"
                 value={montantPaye}
                 onChange={e => setMontantPaye(e.target.value)}
-                className="p-3 rounded-xl border bg-white text-sm"
-                placeholder="Montant payé (facultatif)"
+                className="p-2.5 rounded-xl border bg-white text-xs font-semibold"
+                placeholder="Montant payé (FCFA)"
               />
 
             </div>
 
-            {/* TOTAL DU REÇU */}
+            {/* TOTAL DU REÇU & MONNAIE RENDUE */}
 
-            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 font-black text-right">
-              TOTAL REÇU :{' '}
-              {totalPanier.toLocaleString('fr-FR')} FCFA
+            <div className="p-3.5 rounded-xl bg-emerald-600 text-white font-black flex justify-between items-center shadow-xs">
+              <span className="text-xs uppercase tracking-wider text-emerald-100">
+                Total Reçu :
+              </span>
+              <span className="text-base">
+                {totalPanier.toLocaleString('fr-FR')} FCFA
+              </span>
             </div>
+
+            {Number(montantPaye) > 0 && (
+              <div className="flex justify-between items-center px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-900 font-bold">
+                <span>Monnaie à rendre :</span>
+                <span className="text-sm">
+                  {Number(montantPaye) >= totalPanier
+                    ? `${(Number(montantPaye) - totalPanier).toLocaleString('fr-FR')} FCFA`
+                    : `⚠️ Reste à payer : ${(totalPanier - Number(montantPaye)).toLocaleString('fr-FR')} FCFA`}
+                </span>
+              </div>
+            )}
 
             {/* BOUTON VALIDER LE REÇU */}
 
@@ -1233,11 +1437,12 @@ export default function SaisieActivite({
               type="button"
               onClick={validerRecu}
               disabled={loading}
-              className="w-full p-3.5 rounded-xl bg-emerald-600 text-white font-bold text-sm disabled:opacity-50"
+              className="w-full p-3.5 rounded-xl bg-gray-900 hover:bg-black text-white font-black text-sm disabled:opacity-50 transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
             >
+              <span>🖨️</span>
               {loading
-                ? 'Génération...'
-                : 'Valider et imprimer le reçu'}
+                ? 'Génération et impression...'
+                : 'Valider et imprimer le reçu complet'}
             </button>
 
           </div>
@@ -1280,18 +1485,44 @@ export default function SaisieActivite({
         )}
 
         {/* ===================================================
-            VALIDATION
+            BOUTONS D'ACTION SELON LE TYPE D'OPÉRATION
             =================================================== */}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full p-3.5 rounded-xl bg-gray-900 text-white font-bold text-sm disabled:opacity-50"
-        >
-          {loading
-            ? 'Enregistrement...'
-            : 'Valider l’opération'}
-        </button>
+        {typeOperation === 'depense' ? (
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full p-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm disabled:opacity-50 transition-all shadow-sm cursor-pointer"
+          >
+            {loading ? 'Enregistrement...' : '💸 Enregistrer la dépense'}
+          </button>
+        ) : (
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  ajouterAuPanier();
+                } catch (e) {
+                  setMessage({ type: 'error', text: e.message });
+                }
+              }}
+              disabled={loading}
+              className="w-full p-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm disabled:opacity-50 transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>➕</span>
+              Ajouter au reçu en cours
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs disabled:opacity-50 transition-all cursor-pointer"
+            >
+              {loading ? 'Enregistrement...' : '⚡ Enregistrer directement (sans reçu)'}
+            </button>
+          </div>
+        )}
 
       </form>
 

@@ -28,6 +28,7 @@ lerna-debug.log*
 # Uploads & Generated files
 uploads/
 exports/
+data_recuperee_json/
 *.xlsx
 *.pdf
 

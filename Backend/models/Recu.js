@@ -51,6 +51,12 @@ const recuSchema = new mongoose.Schema(
           ref: "Activite",
         },
 
+        type: {
+          type: String,
+          enum: ["vente", "impression"],
+          default: "vente",
+        },
+
         designation: {
           type: String,
           required: true,
@@ -64,7 +70,6 @@ const recuSchema = new mongoose.Schema(
 
         option_vente: {
           type: String,
-          enum: ["Pièce", "Détail", "Gros"],
           default: "Pièce",
         },
 
@@ -78,6 +83,26 @@ const recuSchema = new mongoose.Schema(
           type: Number,
           required: true,
           min: 0,
+        },
+
+        longueur: {
+          type: Number,
+          default: null,
+        },
+
+        largeur: {
+          type: Number,
+          default: null,
+        },
+
+        surface_m2: {
+          type: Number,
+          default: null,
+        },
+
+        prix_m2: {
+          type: Number,
+          default: null,
         },
       },
     ],

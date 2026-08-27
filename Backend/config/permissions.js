@@ -22,9 +22,22 @@ const SERVICE_TYPES = Object.freeze({
   AUTRE_SERVICE: 'autre_service'
 });
 
+const SERVICE_LABELS = Object.freeze({
+  impression_papier: 'Impression papier',
+  photocopie: 'Photocopie',
+  saisie: 'Saisie',
+  plastification: 'Plastification',
+  impression_bache: 'Impression bâche',
+  impression_autocollant: 'Impression Autocollant',
+  impression_dtf: 'Impression DTF',
+  autre_service: 'Autre service'
+});
+
 const ROLE_PERMISSIONS = Object.freeze({
   services: [
     PERMISSIONS.ACTIVITE_SERVICE,
+    PERMISSIONS.VENTE,
+    PERMISSIONS.STOCK_LECTURE,
     PERMISSIONS.DEPENSE,
     PERMISSIONS.DEPOT_BANQUE,
     PERMISSIONS.CREDIT_GESTION,
@@ -33,6 +46,8 @@ const ROLE_PERMISSIONS = Object.freeze({
   ],
   secretaire_1: [
     PERMISSIONS.ACTIVITE_SERVICE,
+    PERMISSIONS.VENTE,
+    PERMISSIONS.STOCK_LECTURE,
     PERMISSIONS.DEPENSE,
     PERMISSIONS.DEPOT_BANQUE,
     PERMISSIONS.CREDIT_GESTION,
@@ -48,6 +63,7 @@ const ROLE_PERMISSIONS = Object.freeze({
     PERMISSIONS.CAISSE_PROPRE
   ],
   secretaire_3: [
+    PERMISSIONS.ACTIVITE_SERVICE,
     PERMISSIONS.VENTE,
     PERMISSIONS.STOCK_LECTURE,
     PERMISSIONS.STOCK_GESTION,
@@ -97,24 +113,209 @@ function normalizePoste(poste) {
   return String(poste || 'services').trim().toLowerCase();
 }
 
-function getPermissions(poste, role) {
+function getSiteMotif(site, email, username) {
+  const str = `${site?.nom || ''} ${site?.ville || ''} ${email || ''} ${username || ''}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (str.includes('adetikope')) return 'adetikope';
+  if (str.includes('difakpota')) return 'difakpota';
+  return 'tabligbo';
+}
+
+function getPermissions(userOrPoste, maybeRole, maybeSite, maybeEmail) {
+  let poste, role, site, email, username;
+
+  if (typeof userOrPoste === 'object' && userOrPoste !== null) {
+    poste = userOrPoste.poste;
+    role = userOrPoste.role;
+    site = userOrPoste.site_id || userOrPoste.site;
+    email = userOrPoste.email;
+    username = userOrPoste.username;
+  } else {
+    poste = userOrPoste;
+    role = maybeRole;
+    site = maybeSite;
+    email = maybeEmail;
+  }
+
   if (role === 'directeur' || role === 'admin') {
     return Object.values(PERMISSIONS);
   }
 
-  return ROLE_PERMISSIONS[normalizePoste(poste)] || [];
+  const siteMotif = getSiteMotif(site, email, username);
+  const p = normalizePoste(poste);
+
+  // 1. Secrétaire 1 Adétikopé -> SERVICES uniquement (PAS de vente, PAS de stock)
+  if (siteMotif === 'adetikope') {
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  // 2. Secrétaire 1 Difakpota -> Services + Vente
+  if (siteMotif === 'difakpota') {
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.VENTE,
+      PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  // 3. Secrétariats Tabligbo
+  if (p === 'secretaire_1') {
+    // Secrétaire 1 Tabligbo -> SERVICES uniquement (AUCUN accès vente ni stock)
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  if (p === 'secretaire_2') {
+    // Secrétaire 2 Tabligbo -> SERVICES uniquement
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  if (p === 'secretaire_3') {
+    // Secrétaire 3 Tabligbo -> VENTES & STOCKS uniquement (AUCUN service)
+    return [
+      PERMISSIONS.VENTE,
+      PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.STOCK_GESTION,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  if (p === 'secretaire_4') {
+    // Secrétaire 4 Tabligbo -> Papier
+    return [
+      PERMISSIONS.ACTIVITE_SERVICE,
+      PERMISSIONS.VENTE,
+      PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.STOCK_PAPIER_GESTION,
+      PERMISSIONS.DEPENSE,
+      PERMISSIONS.DEPOT_BANQUE,
+      PERMISSIONS.CREDIT_GESTION,
+      PERMISSIONS.JOURNAL_PROPRE,
+      PERMISSIONS.CAISSE_PROPRE
+    ];
+  }
+
+  return ROLE_PERMISSIONS[p] || [];
 }
 
-function hasPermission(poste, role, permission) {
-  return getPermissions(poste, role).includes(permission);
+function hasPermission(userOrPoste, maybeRole, maybePermission) {
+  let permission;
+  if (typeof userOrPoste === 'object' && userOrPoste !== null) {
+    permission = maybeRole;
+    return getPermissions(userOrPoste).includes(permission);
+  }
+  permission = maybePermission;
+  return getPermissions(userOrPoste, maybeRole).includes(permission);
 }
 
-function getServiceTypes(poste, role) {
+function getServiceTypes(userOrPoste, maybeRole, maybeSite, maybeEmail) {
+  let poste, role, site, email, username;
+
+  if (typeof userOrPoste === 'object' && userOrPoste !== null) {
+    poste = userOrPoste.poste;
+    role = userOrPoste.role;
+    site = userOrPoste.site_id || userOrPoste.site;
+    email = userOrPoste.email;
+    username = userOrPoste.username;
+  } else {
+    poste = userOrPoste;
+    role = maybeRole;
+    site = maybeSite;
+    email = maybeEmail;
+  }
+
   if (role === 'directeur' || role === 'admin') {
     return Object.values(SERVICE_TYPES);
   }
 
-  return ROLE_SERVICES[normalizePoste(poste)] || [];
+  const siteMotif = getSiteMotif(site, email, username);
+  const p = normalizePoste(poste);
+
+  // 1. Secrétaire 1 Difakpota
+  if (siteMotif === 'difakpota') {
+    return [
+      SERVICE_TYPES.PHOTOCOPIE,
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_BACHE,
+      SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  // 2. Secrétaire 1 Adétikopé
+  if (siteMotif === 'adetikope') {
+    return [
+      SERVICE_TYPES.PHOTOCOPIE,
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_BACHE,
+      SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+      SERVICE_TYPES.IMPRESSION_DTF,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  // 3. Secrétariats Tabligbo
+  if (p === 'secretaire_1') {
+    return [
+      SERVICE_TYPES.PHOTOCOPIE,
+      SERVICE_TYPES.IMPRESSION_BACHE,
+      SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  if (p === 'secretaire_2') {
+    return [
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.PLASTIFICATION,
+      SERVICE_TYPES.SAISIE,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  if (p === 'secretaire_3') {
+    return [];
+  }
+
+  if (p === 'secretaire_4') {
+    return [
+      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.AUTRE_SERVICE
+    ];
+  }
+
+  return Object.values(SERVICE_TYPES);
 }
 
 function normalizeServiceType(value) {
@@ -145,6 +346,7 @@ function isPaperStockItem(name) {
 module.exports = {
   PERMISSIONS,
   SERVICE_TYPES,
+  SERVICE_LABELS,
   ROLE_PERMISSIONS,
   ROLE_SERVICES,
   getPermissions,

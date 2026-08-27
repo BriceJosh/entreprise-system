@@ -643,7 +643,13 @@ export default function Historique({ profil }) {
                       <div className="font-bold text-gray-800">
                         {operation.designation}
                       </div>
-                      {operation.description && (
+                      {operation.longueur != null && operation.largeur != null && Number(operation.longueur) > 0 && Number(operation.largeur) > 0 && (
+                        <div className="text-[10px] font-semibold text-blue-600 mt-0.5">
+                          📐 {operation.longueur}m × {operation.largeur}m ({operation.surface_m2 || (operation.longueur * operation.largeur).toFixed(2)} m²)
+                          {operation.prix_m2 ? ` • ${Number(operation.prix_m2).toLocaleString('fr-FR')} F/m²` : ''}
+                        </div>
+                      )}
+                      {operation.description && (!operation.longueur || !operation.largeur) && (
                         <div className="text-[10px] text-gray-400 mt-0.5">
                           {operation.description}
                         </div>
