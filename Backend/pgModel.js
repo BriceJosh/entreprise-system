@@ -222,6 +222,14 @@ function createModel(tableName, customMethods = {}) {
     }
 
     async save() {
+      if (tableName === 'activites') {
+        if (this.montant_total == null || Number(this.montant_total) === 0) {
+          const q = Number(this.quantite) || 1;
+          const p = Number(this.prix_unitaire) || 0;
+          this.montant_total = Math.round(q * p);
+        }
+      }
+
       const keys = Object.keys(this).filter(k => !k.startsWith('_') && typeof this[k] !== 'function');
       if (this._id && !this.id) this.id = this._id;
       if (!keys.includes('id')) keys.push('id');

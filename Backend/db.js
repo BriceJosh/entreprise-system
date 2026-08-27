@@ -25,6 +25,32 @@ async function query(text, params) {
   return res;
 }
 
+const NUMERIC_FIELDS = new Set([
+  'quantite',
+  'quantite_unites',
+  'quantite_entree',
+  'prix_unitaire',
+  'montant_total',
+  'montant',
+  'montant_paye',
+  'monnaie_rendue',
+  'prix_vente',
+  'prix_vente_unite',
+  'prix_vente_detail',
+  'prix_vente_gros',
+  'prix_total',
+  'prix_vente_unitaire',
+  'surface_m2',
+  'prix_m2',
+  'longueur',
+  'largeur',
+  'seuil_alerte',
+  'multiplicateur_detail',
+  'multiplicateur_gros',
+  'reste',
+  'reste_a_payer'
+]);
+
 function formatDoc(row) {
   if (!row) return null;
   const doc = { ...row };
@@ -37,6 +63,17 @@ function formatDoc(row) {
   if (doc.updated_at) {
     doc.updatedAt = doc.updated_at;
   }
+
+  // Conversion automatique des colonnes numériques PostgreSQL (strings) en Number JavaScript
+  for (const [k, v] of Object.entries(doc)) {
+    if (v != null && NUMERIC_FIELDS.has(k) && typeof v === 'string') {
+      const num = Number(v);
+      if (!Number.isNaN(num)) {
+        doc[k] = num;
+      }
+    }
+  }
+
   return doc;
 }
 

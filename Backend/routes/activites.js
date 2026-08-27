@@ -681,6 +681,9 @@ router.post('/', verifyToken, async (req, res) => {
           prix_unitaire:
             finalPrixUnitaire,
 
+          montant_total:
+            Math.round(qteSaisie * finalPrixUnitaire),
+
           longueur:
             parsedLongueur,
 

@@ -279,9 +279,11 @@ export default function DashboardSecretaire({ profil }) {
     );
   };
 
+  const [filtrePeriode, setFiltrePeriode] = useState('aujourd_hui');
+
   /*
    * =========================================================
-   * ACTIVITÉS DU JOUR
+   * ACTIVITÉS DU JOUR & TOUTES ACTIVITÉS
    * =========================================================
    */
 
@@ -289,9 +291,9 @@ export default function DashboardSecretaire({ profil }) {
     const aujourdHui = new Date();
 
     return historiqueActivites.filter(item => {
-      const date = new Date(
-        item.createdAt
-      );
+      const dateVal = item.createdAt || item.created_at || item.date;
+      if (!dateVal) return false;
+      const date = new Date(dateVal);
 
       return (
         date.toDateString() ===
@@ -300,6 +302,13 @@ export default function DashboardSecretaire({ profil }) {
     });
 
   }, [historiqueActivites]);
+
+  const activitesAffichees = useMemo(() => {
+    if (filtrePeriode === 'tout') {
+      return historiqueActivites;
+    }
+    return activitesDuJour;
+  }, [filtrePeriode, historiqueActivites, activitesDuJour]);
 
   /*
    * =========================================================
@@ -718,27 +727,50 @@ export default function DashboardSecretaire({ profil }) {
 
           <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
 
               <div>
-
                 <h2 className="text-lg font-black text-gray-800">
                   Mon journal / ma caisse
                 </h2>
 
                 <p className="text-xs text-gray-400">
-                  Uniquement vos propres opérations.
+                  Uniquement vos propres opérations enregistrées.
                 </p>
-
               </div>
 
-              {loading && (
+              <div className="flex items-center gap-2">
+                <div className="inline-flex p-1 bg-gray-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setFiltrePeriode('aujourd_hui')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      filtrePeriode === 'aujourd_hui'
+                        ? 'bg-white text-gray-900 shadow-xs'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Aujourd'hui ({activitesDuJour.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltrePeriode('tout')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      filtrePeriode === 'tout'
+                        ? 'bg-white text-gray-900 shadow-xs'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Toutes ({historiqueActivites.length})
+                  </button>
+                </div>
 
-                <span className="text-xs text-gray-400">
-                  Chargement...
-                </span>
-
-              )}
+                {loading && (
+                  <span className="text-xs text-gray-400">
+                    Chargement...
+                  </span>
+                )}
+              </div>
 
             </div>
 
@@ -776,7 +808,7 @@ export default function DashboardSecretaire({ profil }) {
 
                 <tbody className="divide-y divide-gray-50">
 
-                  {activitesDuJour.map(act => {
+                  {activitesAffichees.map(act => {
 
                     const estDepense =
                       act.type === 'depense';
@@ -788,8 +820,7 @@ export default function DashboardSecretaire({ profil }) {
                       Number(
                         act.montant_total ??
                         act.montant ??
-                        act.prix_unitaire ??
-                        0
+                        ((Number(act.quantite) || 0) * (Number(act.prix_unitaire) || 0))
                       ) || 0;
 
                     /*
