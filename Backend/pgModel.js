@@ -10,13 +10,15 @@ function generateId() {
 }
 
 class QueryBuilder {
-  constructor(tableName, filter = {}) {
+  constructor(tableName, filter = {}, ModelClass = null) {
     this.tableName = tableName;
     this.filter = filter;
+    this.ModelClass = ModelClass;
     this._select = '*';
     this._sort = null;
     this._limit = null;
     this._populates = [];
+    this._isSingle = false;
   }
 
   select(fields) {
@@ -78,11 +80,24 @@ class QueryBuilder {
       });
     }
 
+    if (this._isSingle) {
+      if (!docs || docs.length === 0) return null;
+      return this.ModelClass && !this._lean ? new this.ModelClass(docs[0]) : docs[0];
+    }
+
+    if (this.ModelClass && !this._lean) {
+      return docs.map(d => new this.ModelClass(d));
+    }
+
     return docs;
   }
 
   then(resolve, reject) {
     return this.exec().then(resolve, reject);
+  }
+
+  catch(reject) {
+    return this.exec().catch(reject);
   }
 }
 function buildWhere(filter = {}) {
@@ -257,21 +272,27 @@ function createModel(tableName, customMethods = {}) {
     }
 
     static find(filter = {}) {
-      return new QueryBuilder(tableName, filter);
+      return new QueryBuilder(tableName, filter, Model);
     }
 
-    static async findOne(filter = {}) {
-      const builder = new QueryBuilder(tableName, filter);
+    static findOne(filter = {}) {
+      const builder = new QueryBuilder(tableName, filter, Model);
       builder.limit(1);
-      const docs = await builder.exec();
-      if (!docs || docs.length === 0) return null;
-      return new Model(docs[0]);
+      builder._isSingle = true;
+      return builder;
     }
 
-    static async findById(id) {
-      if (!id) return null;
+    static findById(id) {
+      if (!id) {
+        const builder = new QueryBuilder(tableName, { id: '__null__' }, Model);
+        builder._isSingle = true;
+        return builder;
+      }
       const cleanId = id._id || id.id || id.toString();
-      return this.findOne({ _id: cleanId });
+      const builder = new QueryBuilder(tableName, { id: cleanId }, Model);
+      builder.limit(1);
+      builder._isSingle = true;
+      return builder;
     }
 
     static async create(data) {

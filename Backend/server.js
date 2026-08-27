@@ -216,7 +216,7 @@ app.post('/api/auth/login', async (req, res) => {
       ? (user.site_id._id || user.site_id)
       : null;
 
-    const permissions = getPermissions(user.poste, user.role);
+    const permissions = getPermissions(user);
     const serviceTypes = getServiceTypes(user);
 
     const token = jwt.sign(
