@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-const mongoose = require('mongoose');
-
 const Recu = require('../models/Recu');
 const Activite = require('../models/Activite');
 const Stock = require('../models/Stock');
@@ -555,7 +553,7 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!id || typeof id !== 'string' || id.trim().length === 0) {
       return res.status(400).json({
         message: 'Identifiant de reçu invalide.'
       });

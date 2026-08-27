@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 
 const Activite = require('../models/Activite');
 const Stock = require('../models/Stock');
@@ -332,7 +331,7 @@ router.post('/', verifyToken, async (req, res) => {
 
       if (
         targetId &&
-        mongoose.Types.ObjectId.isValid(targetId)
+        typeof targetId === 'string' && targetId.trim().length > 0
       ) {
 
         articleStock =

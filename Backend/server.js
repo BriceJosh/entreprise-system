@@ -7,11 +7,11 @@ require('dotenv').config({
 
 const express = require('express');
 const http = require('http');
-const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { pool, query, listenAppEvents } = require('./db');
 
 const User = require('./models/User');
 const Activite = require('./models/Activite');
@@ -108,29 +108,10 @@ io.on('connection', (socket) => {
 });
 
 // =============================================================
-// MONGODB & CHANGE STREAMS
+// POSTGRESQL & TEMPS RÉEL (LISTEN / NOTIFY)
 // =============================================================
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000
-    });
-    console.log('✅ Connecté à MongoDB avec succès !');
-  } catch (err) {
-    console.error('❌ Erreur de connexion MongoDB :', err.message);
-    console.log('🔄 Nouvelle tentative de connexion à MongoDB dans 5 secondes...');
-    setTimeout(connectDB, 5000);
-  }
-};
+let dbConnected = false;
 
-connectDB();
-
-// =============================================================
-// TÉLÉPHONES DES AGENCES (attribution automatique, idempotente)
-// =============================================================
-// Exécutée à chaque démarrage du serveur : si un site correspond
-// à une agence connue et que son numéro est absent ou différent,
-// il est simplement mis à jour.
 const TELEPHONES_SITES = [
   { motif: 'difakpota', telephone: '93870704' },
   { motif: 'adetikope', telephone: '91904000' },
@@ -147,11 +128,9 @@ function normaliserTexteSite(valeur) {
 async function attribuerTelephonesSites() {
   try {
     const sites = await Site.find();
-
     for (const site of sites) {
       const texte = normaliserTexteSite(`${site.nom} ${site.ville || ''}`);
       const cible = TELEPHONES_SITES.find((t) => texte.includes(t.motif));
-
       if (cible && site.telephone !== cible.telephone) {
         site.telephone = cible.telephone;
         await site.save();
@@ -163,229 +142,56 @@ async function attribuerTelephonesSites() {
   }
 }
 
-mongoose.connection.once('open', attribuerTelephonesSites);
+async function connectDB() {
+  try {
+    await pool.query('SELECT 1');
+    if (!dbConnected) {
+      dbConnected = true;
+      console.log('✅ Connecté à PostgreSQL avec succès (ACID & Anti-Coupure) !');
+      listenAppEvents(io);
+      await attribuerTelephonesSites();
+    }
+  } catch (err) {
+    dbConnected = false;
+    console.error('❌ Erreur de connexion PostgreSQL :', err.message);
+    console.log('🔄 Nouvelle tentative dans 5 secondes...');
+    setTimeout(connectDB, 5000);
+  }
+}
 
-mongoose.connection.on('disconnected', () => {
-  console.warn('⚠️ Connexion MongoDB perdue. Reconnexion automatique en cours...');
-  closeChangeStreams();
-});
+connectDB();
 
-mongoose.connection.on('error', (err) => {
-  console.error('❌ Erreur MongoDB :', err.message);
-});
-
-// Route de santé pour Render / Uptime monitors / Monitoring local
-//
-// Enrichie pour permettre un diagnostic À DISTANCE (sans accès au
-// serveur) : elle fait un PING réel de MongoDB et détaille l'état.
-//
-// readyState Mongoose :
-//   0 = déconnecté | 1 = connecté | 2 = connexion en cours | 3 = déconnexion
-const READY_STATE_LABELS = {
-  0: 'deconnecte',
-  1: 'connecte',
-  2: 'connexion_en_cours',
-  3: 'deconnexion_en_cours'
-};
-
+// Route de santé pour Monitoring local & distant
 app.get('/api/health', async (req, res) => {
-  const readyState = mongoose.connection.readyState;
-
-  /*
-   * Ping réel de la base : détecte aussi le cas où Mongoose
-   * croit être connecté (readyState = 1) mais où MongoDB
-   * ne répond plus réellement.
-   */
   let dbPing = false;
   try {
-    if (mongoose.connection.db) {
-      await mongoose.connection.db.admin().ping();
-      dbPing = true;
-    }
+    const r = await pool.query('SELECT NOW() AS now');
+    dbPing = Boolean(r.rows && r.rows.length > 0);
   } catch (_) {
     dbPing = false;
   }
 
   res.json({
-    status: dbPing && readyState === 1 ? 'ok' : 'degraded',
+    status: dbPing ? 'ok' : 'degraded',
+    engine: 'PostgreSQL 16 (ACID & Crash-Safe)',
     timestamp: new Date().toISOString(),
-    dbConnected: readyState === 1,
+    dbConnected: dbPing,
     dbPing,
-    readyState,
-    readyStateLabel: READY_STATE_LABELS[readyState] || 'inconnu',
     uptimeSecondes: Math.floor(process.uptime()),
     astuce: dbPing
       ? null
-      : 'MongoDB ne répond pas. Sur le serveur (PowerShell Administrateur) : scripts\\diagnostic-serveur.ps1'
+      : 'PostgreSQL ne répond pas. Sur le serveur : scripts\\relancer-base-en-panne.ps1'
   });
 });
 
 // Middleware pour vérifier la connexion à la base de données
 app.use((req, res, next) => {
-  if (mongoose.connection.readyState !== 1 && !req.path.startsWith('/api/health')) {
+  if (!dbConnected && !req.path.startsWith('/api/health')) {
     return res.status(503).json({
-      message: "La base de données est actuellement indisponible. Veuillez réessayer dans quelques instants."
+      message: "La base de données PostgreSQL est en cours de reconnexion. Veuillez réessayer dans quelques instants."
     });
   }
   next();
-});
-
-// Liste des Change Streams actifs (permet de les fermer/réinitialiser
-// proprement après une coupure puis une reconnexion de MongoDB).
-let changeStreams = [];
-let changeStreamsTimer = null;
-
-const closeChangeStreams = () => {
-  for (const stream of changeStreams) {
-    try {
-      stream.close();
-    } catch (_) {
-      // Flux déjà fermé : on ignore.
-    }
-  }
-  changeStreams = [];
-};
-
-// Anti-doublon : on attend que la connexion soit réellement stable
-// avant de recréer les Change Streams.
-const scheduleInitChangeStreams = () => {
-  if (changeStreamsTimer) clearTimeout(changeStreamsTimer);
-  changeStreamsTimer = setTimeout(() => {
-    changeStreamsTimer = null;
-    if (mongoose.connection.readyState === 1) {
-      initChangeStreams();
-    }
-  }, 1500);
-};
-
-const initChangeStreams = () => {
-  try {
-    closeChangeStreams();
-    console.log('✅ Tentative d\'activation des Change Streams pour le temps réel...');
-
-    const activiteStream = Activite.watch([], { fullDocument: 'updateLookup' });
-    activiteStream.on('change', (change) => {
-      const document = change.fullDocument;
-
-      if (change.operationType === 'insert' && document) {
-        const userId = document.user_id?._id || document.user_id;
-        if (userId) io.to(`user_${userId}`).emit('activite_ajoutee', document);
-        io.to('role_directeur').emit('activite_ajoutee', document);
-      }
-
-      if (change.operationType === 'update') {
-        const payload = {
-          _id: change.documentKey._id,
-          updatedFields: change.updateDescription?.updatedFields
-        };
-        if (document?.user_id) {
-          const userId = document.user_id?._id || document.user_id;
-          io.to(`user_${userId}`).emit('activite_modifiee', payload);
-        }
-        io.to('role_directeur').emit('activite_modifiee', payload);
-      }
-
-      if (change.operationType === 'delete') {
-        io.to('role_directeur').emit('activite_supprimee', change.documentKey._id);
-      }
-    });
-    activiteStream.on('error', (err) => {
-      console.warn('⚠️ Erreur Activite ChangeStream (activer Replica Set pour le temps réel) :', err.message);
-    });
-
-    const depenseStream = Depense.watch([], { fullDocument: 'updateLookup' });
-    depenseStream.on('change', (change) => {
-      const document = change.fullDocument;
-
-      if (change.operationType === 'insert' && document) {
-        const userId = document.user_id?._id || document.user_id;
-        if (userId) io.to(`user_${userId}`).emit('depense_ajoutee', document);
-        io.to('role_directeur').emit('depense_ajoutee', document);
-      }
-
-      if (change.operationType === 'update') {
-        const payload = {
-          _id: change.documentKey._id,
-          updatedFields: change.updateDescription?.updatedFields
-        };
-        if (document?.user_id) {
-          const userId = document.user_id?._id || document.user_id;
-          io.to(`user_${userId}`).emit('depense_modifiee', payload);
-        }
-        io.to('role_directeur').emit('depense_modifiee', payload);
-      }
-
-      if (change.operationType === 'delete') {
-        io.to('role_directeur').emit('depense_supprimee', change.documentKey._id);
-      }
-    });
-    depenseStream.on('error', (err) => {
-      console.warn('⚠️ Erreur Depense ChangeStream :', err.message);
-    });
-
-    const stockStream = Stock.watch([], { fullDocument: 'updateLookup' });
-    stockStream.on('change', (change) => {
-      if (
-        (change.operationType === 'insert' || change.operationType === 'update') &&
-        change.fullDocument
-      ) {
-        const siteId = change.fullDocument.site_id?._id || change.fullDocument.site_id;
-        if (siteId) io.to(`site_${siteId}`).emit('stock_mis_a_jour', change.fullDocument);
-        io.to('role_directeur').emit('stock_mis_a_jour', change.fullDocument);
-      }
-    });
-    stockStream.on('error', (err) => {
-      console.warn('⚠️ Erreur Stock ChangeStream :', err.message);
-    });
-
-    const depotStream = DepotBanque.watch([], { fullDocument: 'updateLookup' });
-    depotStream.on('change', (change) => {
-      const document = change.fullDocument;
-      if (change.operationType === 'insert' && document) {
-        const userId = document.user_id?._id || document.user_id;
-        if (userId) io.to(`user_${userId}`).emit('depot_banque_ajoute', document);
-        io.to('role_directeur').emit('depot_banque_ajoute', document);
-      }
-    });
-    depotStream.on('error', (err) => {
-      console.warn('⚠️ Erreur DepotBanque ChangeStream :', err.message);
-    });
-
-    const creditStream = Credit.watch([], { fullDocument: 'updateLookup' });
-    creditStream.on('change', (change) => {
-      const document = change.fullDocument;
-      if (!document) return;
-      const userId = document.user_id?._id || document.user_id;
-      const event = change.operationType === 'insert' ? 'credit_ajoute' : 'credit_mis_a_jour';
-      if (userId) io.to(`user_${userId}`).emit(event, document);
-      io.to('role_directeur').emit(event, document);
-    });
-    creditStream.on('error', (err) => {
-      console.warn('⚠️ Erreur Credit ChangeStream :', err.message);
-    });
-
-    changeStreams.push(
-      activiteStream,
-      depenseStream,
-      stockStream,
-      depotStream,
-      creditStream
-    );
-
-    console.log('✅ Initialisation des Change Streams terminée.');
-  } catch (streamErr) {
-    console.warn('⚠️ Change Streams non supportés sans Replica Set (activez rs0) :', streamErr.message);
-  }
-};
-
-mongoose.connection.on('open', () => {
-  console.log('✅ Connexion MongoDB ouverte.');
-  scheduleInitChangeStreams();
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('✅ Reconnecté à MongoDB avec succès.');
-  scheduleInitChangeStreams();
 });
 
 // =============================================================

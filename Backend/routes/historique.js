@@ -1,5 +1,4 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const router = express.Router();
 const ExcelJS = require("exceljs");
 const PDFDocument = require("pdfkit-table");
@@ -290,11 +289,6 @@ async function afficherHistorique(req, res) {
         siteDemande !== "null" &&
         siteDemande !== "undefined"
       ) {
-        if (!mongoose.Types.ObjectId.isValid(siteDemande)) {
-          return res
-            .status(400)
-            .json({ message: "Identifiant de site invalide." });
-        }
         filtreCommun.site_id = siteDemande;
       }
 
@@ -306,11 +300,6 @@ async function afficherHistorique(req, res) {
         userDemande !== "null" &&
         userDemande !== "undefined"
       ) {
-        if (!mongoose.Types.ObjectId.isValid(userDemande)) {
-          return res
-            .status(400)
-            .json({ message: "Identifiant utilisateur invalide." });
-        }
         filtreCommun.user_id = userDemande;
       }
     } else {
