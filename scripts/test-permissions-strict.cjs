@@ -13,7 +13,7 @@ const profiles = [
     user: { poste: 'secretaire_2', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE],
     mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION],
-    expectedServices: ['impression_papier', 'plastification', 'saisie', 'autre_service']
+    expectedServices: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'photocopie', 'saisie', 'plastification', 'maintenance', 'scanner', 'autre_service']
   },
   {
     name: 'Secrétaire 3 Tabligbo',
@@ -27,21 +27,21 @@ const profiles = [
     user: { poste: 'secretaire_4', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_PAPIER_GESTION],
     mustNotHave: [],
-    expectedServices: ['impression_papier', 'autre_service']
+    expectedServices: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'autre_service']
   },
   {
     name: 'Secrétaire 1 Adétikopé',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Adétikopé', ville: 'Adétikopé' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE],
     mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION],
-    expectedServices: ['photocopie', 'impression_papier', 'impression_bache', 'impression_autocollant', 'impression_dtf', 'autre_service']
+    expectedServices: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'impression_dtf', 'autre_service']
   },
   {
     name: 'Secrétaire 1 Difakpota',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Difakpota', ville: 'Difakpota' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE],
     mustNotHave: [],
-    expectedServices: ['photocopie', 'impression_papier', 'impression_bache', 'impression_autocollant', 'autre_service']
+    expectedServices: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'autre_service']
   }
 ];
 

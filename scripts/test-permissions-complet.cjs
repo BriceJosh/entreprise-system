@@ -16,7 +16,7 @@ const tests = [
     doitAvoirService: true,
     doitAvoirVente: false,
     doitAvoirStock: false,
-    servicesCount: 4
+    servicesCount: 8
   },
   {
     nom: 'Secrétaire 3 Tabligbo',
@@ -32,7 +32,7 @@ const tests = [
     doitAvoirService: true,
     doitAvoirVente: false,
     doitAvoirStock: false,
-    servicesCount: 6
+    servicesCount: 7
   },
   {
     nom: 'Secrétaire 1 Difakpota',
@@ -40,7 +40,7 @@ const tests = [
     doitAvoirService: true,
     doitAvoirVente: true,
     doitAvoirStock: true,
-    servicesCount: 5
+    servicesCount: 6
   }
 ];
 

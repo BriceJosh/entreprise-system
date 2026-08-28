@@ -12,24 +12,30 @@ export const PERMISSIONS = Object.freeze({
 });
 
 export const SERVICE_TYPES = Object.freeze({
-  IMPRESSION_PAPIER: 'impression_papier',
+  IMPRESSION_PAPIER_BLANC_NOIR: 'impression_papier_blanc_noir',
+  IMPRESSION_PAPIER_COULEUR: 'impression_papier_couleur',
   PHOTOCOPIE: 'photocopie',
   SAISIE: 'saisie',
   PLASTIFICATION: 'plastification',
   IMPRESSION_BACHE: 'impression_bache',
   IMPRESSION_AUTOCOLLANT: 'impression_autocollant',
   IMPRESSION_DTF: 'impression_dtf',
+  MAINTENANCE: 'maintenance',
+  SCANNER: 'scanner',
   AUTRE_SERVICE: 'autre_service'
 });
 
 export const SERVICE_LABELS = Object.freeze({
-  impression_papier: 'Impression papier',
+  impression_papier_blanc_noir: 'Impression papier blanc noir',
+  impression_papier_couleur: 'Impression papier couleur',
   photocopie: 'Photocopie',
   saisie: 'Saisie',
   plastification: 'Plastification',
   impression_bache: 'Impression bâche',
   impression_autocollant: 'Impression Autocollant',
   impression_dtf: 'Impression DTF',
+  maintenance: 'Maintenance',
+  scanner: 'Scanner',
   autre_service: 'Autre service'
 });
 
@@ -90,20 +96,25 @@ const ROLE_PERMISSIONS = {
 export const ROLE_SERVICES = {
   services: Object.values(SERVICE_TYPES),
   secretaire_1: [
+    SERVICE_TYPES.PHOTOCOPIE,
     SERVICE_TYPES.IMPRESSION_BACHE,
     SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
     SERVICE_TYPES.IMPRESSION_DTF,
     SERVICE_TYPES.AUTRE_SERVICE
   ],
   secretaire_2: [
-    SERVICE_TYPES.IMPRESSION_PAPIER,
+    SERVICE_TYPES.IMPRESSION_PAPIER_BLANC_NOIR,
+    SERVICE_TYPES.IMPRESSION_PAPIER_COULEUR,
     SERVICE_TYPES.PHOTOCOPIE,
     SERVICE_TYPES.SAISIE,
     SERVICE_TYPES.PLASTIFICATION,
+    SERVICE_TYPES.MAINTENANCE,
+    SERVICE_TYPES.SCANNER,
     SERVICE_TYPES.AUTRE_SERVICE
   ],
   secretaire_4: [
-    SERVICE_TYPES.IMPRESSION_PAPIER,
+    SERVICE_TYPES.IMPRESSION_PAPIER_BLANC_NOIR,
+    SERVICE_TYPES.IMPRESSION_PAPIER_COULEUR,
     SERVICE_TYPES.AUTRE_SERVICE
   ],
   polyvalent: Object.values(SERVICE_TYPES)
@@ -234,7 +245,8 @@ export function getServiceTypes(profil) {
   if (siteMotif === 'difakpota') {
     return [
       SERVICE_TYPES.PHOTOCOPIE,
-      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_PAPIER_BLANC_NOIR,
+      SERVICE_TYPES.IMPRESSION_PAPIER_COULEUR,
       SERVICE_TYPES.IMPRESSION_BACHE,
       SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
       SERVICE_TYPES.AUTRE_SERVICE
@@ -245,7 +257,8 @@ export function getServiceTypes(profil) {
   if (siteMotif === 'adetikope') {
     return [
       SERVICE_TYPES.PHOTOCOPIE,
-      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_PAPIER_BLANC_NOIR,
+      SERVICE_TYPES.IMPRESSION_PAPIER_COULEUR,
       SERVICE_TYPES.IMPRESSION_BACHE,
       SERVICE_TYPES.IMPRESSION_AUTOCOLLANT,
       SERVICE_TYPES.IMPRESSION_DTF,
@@ -265,9 +278,13 @@ export function getServiceTypes(profil) {
 
   if (p === 'secretaire_2') {
     return [
-      SERVICE_TYPES.IMPRESSION_PAPIER,
-      SERVICE_TYPES.PLASTIFICATION,
+      SERVICE_TYPES.IMPRESSION_PAPIER_BLANC_NOIR,
+      SERVICE_TYPES.IMPRESSION_PAPIER_COULEUR,
+      SERVICE_TYPES.PHOTOCOPIE,
       SERVICE_TYPES.SAISIE,
+      SERVICE_TYPES.PLASTIFICATION,
+      SERVICE_TYPES.MAINTENANCE,
+      SERVICE_TYPES.SCANNER,
       SERVICE_TYPES.AUTRE_SERVICE
     ];
   }
@@ -278,7 +295,8 @@ export function getServiceTypes(profil) {
 
   if (p === 'secretaire_4') {
     return [
-      SERVICE_TYPES.IMPRESSION_PAPIER,
+      SERVICE_TYPES.IMPRESSION_PAPIER_BLANC_NOIR,
+      SERVICE_TYPES.IMPRESSION_PAPIER_COULEUR,
       SERVICE_TYPES.AUTRE_SERVICE
     ];
   }

@@ -10,22 +10,27 @@ const testCases = [
   {
     nom: 'Secrétaire 2 Tabligbo',
     user: { poste: 'secretaire_2', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
-    attendu: ['impression_papier', 'plastification', 'saisie', 'autre_service']
+    attendu: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'photocopie', 'saisie', 'plastification', 'maintenance', 'scanner', 'autre_service']
   },
   {
     nom: 'Secrétaire 3 Tabligbo',
     user: { poste: 'secretaire_3', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
-    attendu: ['impression_papier', 'saisie', 'autre_service']
+    attendu: []
+  },
+  {
+    nom: 'Secrétaire 4 Tabligbo',
+    user: { poste: 'secretaire_4', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
+    attendu: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'autre_service']
   },
   {
     nom: 'Secrétaire 1 Difakpota',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Difakpota', ville: 'Difakpota' } },
-    attendu: ['photocopie', 'impression_papier', 'impression_bache', 'impression_autocollant', 'autre_service']
+    attendu: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'autre_service']
   },
   {
     nom: 'Secrétaire 1 Adétikopé',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Adétikopé', ville: 'Adétikopé' } },
-    attendu: ['photocopie', 'impression_papier', 'impression_bache', 'impression_autocollant', 'impression_dtf', 'autre_service']
+    attendu: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'impression_dtf', 'autre_service']
   }
 ];
 
