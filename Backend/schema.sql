@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS recus (
     lignes JSONB NOT NULL DEFAULT '[]'::jsonb,
     site_id VARCHAR(24) REFERENCES sites(id) ON DELETE CASCADE,
     user_id VARCHAR(24) REFERENCES users(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS activites (
@@ -89,6 +90,8 @@ CREATE TABLE IF NOT EXISTS activites (
     largeur NUMERIC,
     surface_m2 NUMERIC,
     prix_m2 NUMERIC,
+    avec_conception BOOLEAN DEFAULT false,
+    prix_conception NUMERIC DEFAULT 0,
     recu_id VARCHAR(24) REFERENCES recus(id) ON DELETE SET NULL,
     site_id VARCHAR(24) REFERENCES sites(id) ON DELETE CASCADE,
     user_id VARCHAR(24) REFERENCES users(id) ON DELETE SET NULL,

@@ -42,6 +42,7 @@ const NUMERIC_FIELDS = new Set([
   'prix_vente_unitaire',
   'surface_m2',
   'prix_m2',
+  'prix_conception',
   'longueur',
   'largeur',
   'seuil_alerte',

@@ -881,6 +881,12 @@ export default function DashboardSecretaire({ profil }) {
                             <div className="text-[11px] font-normal text-blue-600 mt-0.5">
                               📐 {act.longueur}m × {act.largeur}m ({act.surface_m2 || (act.longueur * act.largeur).toFixed(2)} m²)
                               {act.prix_m2 ? ` à ${Number(act.prix_m2).toLocaleString()} F/m²` : ''}
+                              {act.prix_conception && Number(act.prix_conception) > 0 ? ` • 🎨 Conception: +${Number(act.prix_conception).toLocaleString()} F` : ''}
+                            </div>
+                          )}
+                          {act.prix_conception && Number(act.prix_conception) > 0 && (!act.longueur || !act.largeur) && (
+                            <div className="text-[11px] font-semibold text-blue-600 mt-0.5">
+                              🎨 Conception: +{Number(act.prix_conception).toLocaleString()} FCFA
                             </div>
                           )}
                           {act.description && (!act.longueur || !act.largeur) && (

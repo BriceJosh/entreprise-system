@@ -172,9 +172,12 @@ router.post('/', verifyToken, async (req, res) => {
         const numLargeur = ligne?.largeur != null && ligne?.largeur !== '' ? Number(ligne.largeur) : null;
         const numSurface = ligne?.surface_m2 != null && ligne?.surface_m2 !== '' ? Number(ligne.surface_m2) : (numLongueur && numLargeur ? Number((numLongueur * numLargeur).toFixed(4)) : null);
         const numPrixM2 = ligne?.prix_m2 != null && ligne?.prix_m2 !== '' ? Number(ligne.prix_m2) : null;
+        const numPrixConception = (ligne?.avec_conception && ligne?.prix_conception != null && ligne?.prix_conception !== '')
+          ? Number(ligne.prix_conception)
+          : (Number(ligne?.prix_conception) > 0 ? Number(ligne.prix_conception) : 0);
         const description = String(ligne?.description || '').trim();
 
-        const montantLigne = Math.round(quantiteSaisie * prixUnitaire);
+        const montantLigne = Math.round(quantiteSaisie * prixUnitaire) + (numPrixConception > 0 ? Math.round(numPrixConception) : 0);
         montantTotal += montantLigne;
 
         lignesRecu.push({
@@ -184,6 +187,8 @@ router.post('/', verifyToken, async (req, res) => {
           quantite: quantiteSaisie,
           option_vente: 'Service',
           prix_unitaire: prixUnitaire,
+          avec_conception: Boolean(ligne?.avec_conception || numPrixConception > 0),
+          prix_conception: numPrixConception > 0 ? Math.round(numPrixConception) : 0,
           montant: montantLigne,
           longueur: numLongueur,
           largeur: numLargeur,
@@ -307,7 +312,11 @@ router.post('/', verifyToken, async (req, res) => {
      * =====================================================
      */
 
+    const numeroRecu = `REC-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+
     const recu = new Recu({
+      numero: numeroRecu,
+
       lignes: [],
 
       montant_total: montantTotal,
@@ -360,6 +369,8 @@ router.post('/', verifyToken, async (req, res) => {
           quantite: ligne.quantite,
           quantite_unites: ligne.quantite,
           prix_unitaire: ligne.prix_unitaire,
+          avec_conception: Boolean(ligne.avec_conception),
+          prix_conception: Number(ligne.prix_conception) || 0,
           montant_total: ligne.montant,
           longueur: ligne.longueur,
           largeur: ligne.largeur,

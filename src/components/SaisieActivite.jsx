@@ -66,6 +66,14 @@ export default function SaisieActivite({
   const [largeur, setLargeur] = useState('');
   const [prixM2, setPrixM2] = useState('');
 
+  /*
+   * =========================================================
+   * CONCEPTION GRAPHIQUE (Bâches, Autocollants...)
+   * =========================================================
+   */
+  const [avecConception, setAvecConception] = useState(false);
+  const [prixConception, setPrixConception] = useState('');
+
   const isServiceGrandFormat = useMemo(() => {
     return (
       serviceType === 'impression_bache' ||
@@ -369,6 +377,8 @@ export default function SaisieActivite({
     setLongueur('');
     setLargeur('');
     setPrixM2('');
+    setAvecConception(false);
+    setPrixConception('');
 
     setOptionVente('Pièce');
 
@@ -440,11 +450,14 @@ export default function SaisieActivite({
       const numLongueur = longueur ? parseFloat(String(longueur).replace(',', '.')) : null;
       const numLargeur = largeur ? parseFloat(String(largeur).replace(',', '.')) : null;
       const numPrixM2 = prixM2 ? parseFloat(String(prixM2).replace(',', '.')) : null;
+      const numPrixConception = (avecConception && prixConception) ? parseFloat(String(prixConception).replace(',', '.')) : 0;
 
       let descFinale = description.trim();
       if (numLongueur > 0 && numLargeur > 0 && !descFinale) {
         descFinale = `${numLongueur}m × ${numLargeur}m (${surfaceCalculee} m²)`;
       }
+
+      const montantLigne = Math.round(Number(quantite) * pu) + (numPrixConception > 0 ? Math.round(numPrixConception) : 0);
 
       setPanier(precedent => [
         ...precedent,
@@ -457,7 +470,9 @@ export default function SaisieActivite({
           quantite: Number(quantite),
           option_vente: 'Service',
           prix_unitaire: pu,
-          montant: Math.round(Number(quantite) * pu),
+          avec_conception: avecConception && numPrixConception > 0,
+          prix_conception: numPrixConception > 0 ? Math.round(numPrixConception) : 0,
+          montant: montantLigne,
           longueur: numLongueur > 0 ? numLongueur : null,
           largeur: numLargeur > 0 ? numLargeur : null,
           surface_m2: surfaceCalculee > 0 ? surfaceCalculee : null,
@@ -471,6 +486,8 @@ export default function SaisieActivite({
       setLargeur('');
       setPrixM2('');
       setPrixUnitaire('');
+      setAvecConception(false);
+      setPrixConception('');
     }
   }
 
@@ -738,6 +755,7 @@ export default function SaisieActivite({
         const numLongueur = longueur ? parseFloat(String(longueur).replace(',', '.')) : null;
         const numLargeur = largeur ? parseFloat(String(largeur).replace(',', '.')) : null;
         const numPrixM2 = prixM2 ? parseFloat(String(prixM2).replace(',', '.')) : null;
+        const numPrixConception = (avecConception && prixConception) ? parseFloat(String(prixConception).replace(',', '.')) : 0;
 
         let descFinale = description;
         if (numLongueur > 0 && numLargeur > 0 && (!descFinale || descFinale.trim() === '')) {
@@ -762,6 +780,12 @@ export default function SaisieActivite({
 
           prix_unitaire:
             Number(prixUnitaire),
+
+          avec_conception:
+            Boolean(avecConception && numPrixConception > 0),
+
+          prix_conception:
+            numPrixConception > 0 ? Math.round(numPrixConception) : 0,
 
           longueur: numLongueur > 0 ? numLongueur : null,
           largeur: numLargeur > 0 ? numLargeur : null,
@@ -1000,9 +1024,9 @@ export default function SaisieActivite({
               </select>
             </div>
 
-            {/* Champs de dimensions pour Bâches, Autocollants et Grand Format */}
+            {/* Champs de dimensions et conception pour Bâches, Autocollants et Grand Format */}
             {isServiceGrandFormat && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-blue-900 flex items-center gap-1">
                     📐 Dimensions de l'impression (au m²)
@@ -1060,16 +1084,90 @@ export default function SaisieActivite({
                   />
                 </div>
 
-                {surfaceCalculee > 0 && (
-                  <div className="text-xs text-blue-800 bg-white p-2.5 rounded-lg border border-blue-100 flex flex-col gap-1">
-                    <div className="flex justify-between">
-                      <span>Calcul surface :</span>
-                      <span className="font-semibold">{longueur}m × {largeur}m = <strong>{surfaceCalculee} m²</strong></span>
+                {/* Choix Conception Graphique */}
+                <div className="pt-2 border-t border-blue-200">
+                  <label className="block text-xs font-bold text-blue-950 mb-2">
+                    🎨 La conception a-t-elle été faite avec l'impression ?
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAvecConception(false);
+                        setPrixConception('');
+                      }}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        !avecConception
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>❌ Non</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAvecConception(true)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        avecConception
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>🎨 Oui (avec conception)</span>
+                    </button>
+                  </div>
+
+                  {avecConception && (
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200 space-y-1">
+                      <label className="block text-[11px] font-bold text-blue-900">
+                        Prix de la conception (FCFA)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={prixConception}
+                        onChange={e => setPrixConception(e.target.value)}
+                        className="w-full p-2.5 rounded-lg border border-blue-300 bg-blue-50/30 text-sm font-bold text-blue-950 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ex: 2000"
+                        autoFocus
+                      />
+                      <p className="text-[10px] text-gray-500">
+                        Ce montant sera automatiquement ajouté au prix total de l'impression.
+                      </p>
                     </div>
-                    {prixM2 && (
-                      <div className="flex justify-between pt-1 border-t border-blue-50 text-blue-900 font-bold">
-                        <span>Prix par exemplaire :</span>
-                        <span>{surfaceCalculee} m² × {prixM2} F = {Math.round(surfaceCalculee * Number(prixM2)).toLocaleString()} FCFA</span>
+                  )}
+                </div>
+
+                {(surfaceCalculee > 0 || (avecConception && Number(prixConception) > 0)) && (
+                  <div className="text-xs text-blue-800 bg-white p-2.5 rounded-lg border border-blue-100 flex flex-col gap-1">
+                    {surfaceCalculee > 0 && (
+                      <div className="flex justify-between">
+                        <span>Calcul surface :</span>
+                        <span className="font-semibold">{longueur}m × {largeur}m = <strong>{surfaceCalculee} m²</strong></span>
+                      </div>
+                    )}
+                    {surfaceCalculee > 0 && prixM2 && (
+                      <div className="flex justify-between text-gray-700">
+                        <span>Impression ({quantite} ex.) :</span>
+                        <span className="font-semibold">{Number(quantite)} × {Math.round(surfaceCalculee * Number(prixM2)).toLocaleString()} F = {(Number(quantite) * Math.round(surfaceCalculee * Number(prixM2))).toLocaleString()} FCFA</span>
+                      </div>
+                    )}
+                    {avecConception && Number(prixConception) > 0 && (
+                      <div className="flex justify-between text-blue-700 font-semibold">
+                        <span>+ Conception :</span>
+                        <span>+{Number(prixConception).toLocaleString()} FCFA</span>
+                      </div>
+                    )}
+                    {((surfaceCalculee > 0 && prixM2) || (avecConception && Number(prixConception) > 0)) && (
+                      <div className="flex justify-between pt-1 border-t border-blue-100 text-blue-950 font-black text-sm">
+                        <span>Total estimé :</span>
+                        <span>
+                          {(
+                            (prixUnitaire ? Number(quantite) * Number(prixUnitaire) : (surfaceCalculee && prixM2 ? Number(quantite) * Math.round(surfaceCalculee * Number(prixM2)) : 0)) +
+                            (avecConception && Number(prixConception) > 0 ? Number(prixConception) : 0)
+                          ).toLocaleString()} FCFA
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1349,6 +1447,7 @@ export default function SaisieActivite({
                       <div className="text-[11px] text-blue-600 font-normal">
                         Service • {ligne.quantite} ex.
                         {ligne.surface_m2 ? ` • Dim: ${ligne.longueur}m × ${ligne.largeur}m (${ligne.surface_m2} m²)` : ''}
+                        {ligne.prix_conception ? ` • 🎨 Conception: +${ligne.prix_conception.toLocaleString('fr-FR')} F` : ''}
                         {ligne.description ? ` • ${ligne.description}` : ''}
                       </div>
                     ) : (

@@ -12,9 +12,20 @@ export function imprimerRecu(recu, infosEntreprise = {}) {
   const lignesHtml = (recu.lignes || [])
     .map(
       (ligne) => {
-        const dimInfo = (ligne.longueur && ligne.largeur)
-          ? `<br/><span style="font-size:9px;color:#333;font-style:italic">Dim: ${ligne.longueur}m × ${ligne.largeur}m (${ligne.surface_m2 || (ligne.longueur * ligne.largeur).toFixed(2)} m²)</span>`
-          : (ligne.description ? `<br/><span style="font-size:9px;color:#555">${escapeHtml(ligne.description)}</span>` : '');
+        const detailsExtra = [];
+        if (ligne.longueur && ligne.largeur) {
+          detailsExtra.push(`Dim: ${ligne.longueur}m × ${ligne.largeur}m (${ligne.surface_m2 || (ligne.longueur * ligne.largeur).toFixed(2)} m²)`);
+        }
+        if (ligne.prix_conception && Number(ligne.prix_conception) > 0) {
+          detailsExtra.push(`Conception: +${formatFcfa(ligne.prix_conception)}`);
+        }
+        if (ligne.description) {
+          detailsExtra.push(escapeHtml(ligne.description));
+        }
+
+        const dimInfo = detailsExtra.length > 0
+          ? `<br/><span style="font-size:9px;color:#333;font-style:italic">${detailsExtra.join(' • ')}</span>`
+          : '';
 
         return `
         <tr>

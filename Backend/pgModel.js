@@ -238,12 +238,15 @@ function createModel(tableName, customMethods = {}) {
       const values = [];
       const placeholders = [];
       const updates = [];
+      const seenCols = new Set();
 
       let i = 1;
       for (const k of keys) {
+        if (k === 'createdAt' || k === 'updatedAt') continue;
         let col = k;
-        if (col === 'createdAt') col = 'created_at';
-        if (col === 'updatedAt') col = 'updated_at';
+
+        if (seenCols.has(col)) continue;
+        seenCols.add(col);
 
         let val = this[k];
         if (typeof val === 'object' && val !== null && !(val instanceof Date)) {
@@ -257,7 +260,7 @@ function createModel(tableName, customMethods = {}) {
         cols.push(col);
         values.push(val);
         placeholders.push(`$${i}`);
-        if (col !== 'id' && col !== 'created_at') {
+        if (col !== 'id' && col !== 'created_at' && col !== 'updated_at') {
           updates.push(`${col} = EXCLUDED.${col}`);
         }
         i++;

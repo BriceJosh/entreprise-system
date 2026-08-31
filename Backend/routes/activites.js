@@ -151,7 +151,9 @@ router.post('/', verifyToken, async (req, res) => {
       longueur,
       largeur,
       surface_m2,
-      prix_m2
+      prix_m2,
+      avec_conception,
+      prix_conception
     } = req.body;
 
     /*
@@ -650,6 +652,9 @@ router.post('/', verifyToken, async (req, res) => {
       const parsedLongueur = longueur != null && longueur !== '' ? Number(longueur) : null;
       const parsedLargeur = largeur != null && largeur !== '' ? Number(largeur) : null;
       const parsedPrixM2 = prix_m2 != null && prix_m2 !== '' ? Number(prix_m2) : null;
+      const parsedPrixConception = (avec_conception && prix_conception != null && prix_conception !== '')
+        ? Number(prix_conception)
+        : (Number(prix_conception) > 0 ? Number(prix_conception) : 0);
       let calculatedSurface = null;
       let finalPrixUnitaire = prixUnitaire;
 
@@ -659,6 +664,8 @@ router.post('/', verifyToken, async (req, res) => {
           finalPrixUnitaire = Math.round(calculatedSurface * parsedPrixM2);
         }
       }
+
+      const totalLigne = Math.round(qteSaisie * finalPrixUnitaire) + (parsedPrixConception > 0 ? Math.round(parsedPrixConception) : 0);
 
       const nouvelleActivite =
         new Activite({
@@ -681,8 +688,14 @@ router.post('/', verifyToken, async (req, res) => {
           prix_unitaire:
             finalPrixUnitaire,
 
+          avec_conception:
+            Boolean(avec_conception || parsedPrixConception > 0),
+
+          prix_conception:
+            parsedPrixConception > 0 ? Math.round(parsedPrixConception) : 0,
+
           montant_total:
-            Math.round(qteSaisie * finalPrixUnitaire),
+            totalLigne,
 
           longueur:
             parsedLongueur,

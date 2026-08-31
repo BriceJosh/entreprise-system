@@ -419,6 +419,8 @@ async function afficherHistorique(req, res) {
         largeur: item.largeur || null,
         surface_m2: item.surface_m2 || null,
         prix_m2: item.prix_m2 || null,
+        avec_conception: Boolean(item.avec_conception),
+        prix_conception: Number(item.prix_conception) || 0,
       });
     });
 
