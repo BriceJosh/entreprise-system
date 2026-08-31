@@ -420,7 +420,7 @@ export default function DashboardSecretaire({ profil }) {
               Historique
             </Link>
 
-            {flags.vente && (
+            {(flags.vente || flags.services) && (
               <Link
                 to="/recus"
                 className="px-4 py-2 rounded-xl bg-emerald-50 text-xs font-bold text-emerald-700"
@@ -585,7 +585,7 @@ export default function DashboardSecretaire({ profil }) {
             REÇUS DU JOUR (lien vers la page dédiée)
             =================================================== */}
 
-        {flags.vente && (
+        {(flags.vente || flags.services) && (
           <div className="mt-6">
             <Link
               to="/recus"
