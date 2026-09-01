@@ -610,17 +610,19 @@ export default function DashboardSecretaire({ profil }) {
 
           {flags.decoupage && (
 
-            <DecoupageStock
-              siteId={currentSiteId}
-              onDecoupageReussi={donnees => {
-                if (donnees?.activite) {
-                  setHistoriqueActivites(prev => [
-                    donnees.activite,
-                    ...prev
-                  ]);
-                }
-              }}
-            />
+            <div className="lg:col-span-2">
+              <DecoupageStock
+                siteId={currentSiteId}
+                onDecoupageReussi={donnees => {
+                  if (donnees?.activite) {
+                    setHistoriqueActivites(prev => [
+                      donnees.activite,
+                      ...prev
+                    ]);
+                  }
+                }}
+              />
+            </div>
 
           )}
 

@@ -136,10 +136,6 @@ export function getPermissions(profil) {
     return Object.values(PERMISSIONS);
   }
 
-  if (Array.isArray(profil?.permissions) && profil.permissions.length > 0) {
-    return profil.permissions;
-  }
-
   const siteMotif = getSiteMotif(profil?.site_id || profil?.site, profil?.email, profil?.username);
   const p = String(profil?.poste || 'services').trim().toLowerCase();
 
@@ -235,10 +231,6 @@ export function hasPermission(profil, permission) {
 export function getServiceTypes(profil) {
   if (profil?.role === 'directeur' || profil?.role === 'admin') {
     return Object.values(SERVICE_TYPES);
-  }
-
-  if (Array.isArray(profil?.serviceTypes) && profil.serviceTypes.length > 0) {
-    return profil.serviceTypes;
   }
 
   const siteMotif = getSiteMotif(profil?.site_id || profil?.site, profil?.email, profil?.username);
