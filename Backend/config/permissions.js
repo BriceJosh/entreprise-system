@@ -4,6 +4,7 @@ const PERMISSIONS = Object.freeze({
   STOCK_LECTURE: 'stock_lecture',
   STOCK_GESTION: 'stock_gestion',
   STOCK_PAPIER_GESTION: 'stock_papier_gestion',
+  DECOUPAGE: 'decoupage',
   DEPENSE: 'depense',
   DEPOT_BANQUE: 'depot_banque',
   CREDIT_GESTION: 'credit_gestion',
@@ -169,12 +170,13 @@ function getPermissions(userOrPoste, maybeRole, maybeSite, maybeEmail) {
     ];
   }
 
-  // 2. Secrétaire 1 Difakpota -> Services + Vente
+  // 2. Secrétaire 1 Difakpota -> Services + Vente + Découpage
   if (siteMotif === 'difakpota') {
     return [
       PERMISSIONS.ACTIVITE_SERVICE,
       PERMISSIONS.VENTE,
       PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.DECOUPAGE,
       PERMISSIONS.DEPENSE,
       PERMISSIONS.DEPOT_BANQUE,
       PERMISSIONS.CREDIT_GESTION,

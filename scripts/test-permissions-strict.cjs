@@ -5,41 +5,41 @@ const profiles = [
     name: 'Secrétaire 1 Tabligbo',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE],
-    mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION],
+    mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION, PERMISSIONS.DECOUPAGE],
     expectedServices: ['photocopie', 'impression_bache', 'impression_autocollant', 'autre_service']
   },
   {
     name: 'Secrétaire 2 Tabligbo',
     user: { poste: 'secretaire_2', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE],
-    mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION],
+    mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION, PERMISSIONS.DECOUPAGE],
     expectedServices: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'photocopie', 'saisie', 'plastification', 'maintenance', 'scanner', 'autre_service']
   },
   {
     name: 'Secrétaire 3 Tabligbo',
     user: { poste: 'secretaire_3', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION],
-    mustNotHave: [PERMISSIONS.ACTIVITE_SERVICE],
+    mustNotHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.DECOUPAGE],
     expectedServices: []
   },
   {
     name: 'Secrétaire 4 Tabligbo',
     user: { poste: 'secretaire_4', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_PAPIER_GESTION],
-    mustNotHave: [],
+    mustNotHave: [PERMISSIONS.DECOUPAGE],
     expectedServices: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'autre_service']
   },
   {
     name: 'Secrétaire 1 Adétikopé',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Adétikopé', ville: 'Adétikopé' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE],
-    mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION],
+    mustNotHave: [PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION, PERMISSIONS.DECOUPAGE],
     expectedServices: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'impression_dtf', 'autre_service']
   },
   {
     name: 'Secrétaire 1 Difakpota',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Difakpota', ville: 'Difakpota' } },
-    mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE],
+    mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.DECOUPAGE],
     mustNotHave: [],
     expectedServices: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'autre_service']
   }

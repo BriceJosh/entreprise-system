@@ -3,6 +3,7 @@ const router = express.Router();
 
 const Stock = require('../models/Stock');
 const StockMouvement = require('../models/StockMouvement');
+const Activite = require('../models/Activite');
 
 const {
   verifyToken
@@ -10,7 +11,8 @@ const {
 
 const {
   peutLireStock,
-  peutGererArticleStock
+  peutGererArticleStock,
+  peutFaireDecoupage
 } = require('../middleware/permissions');
 
 /*
@@ -940,6 +942,190 @@ router.post(
 
         error:
           error.message
+      });
+    }
+  }
+);
+
+/*
+ * =========================================================
+ * POST /api/stocks/decoupage
+ * =========================================================
+ *
+ * DÉCOUPAGE D'UN ARTICLE DU STOCK (BÂCHE / AUTOCOLLANT)
+ *
+ * 1. Décrémente l'article source de 1 dans le stock.
+ * 2. Enregistre le mouvement de sortie de type "decoupage".
+ * 3. Enregistre la mesure restante / chute dans le stock avec son prix de vente (si reste > 0).
+ * 4. Enregistre une activité dans le journal pour traçabilité.
+ */
+router.post(
+  '/decoupage',
+  verifyToken,
+  async (req, res) => {
+    try {
+      if (!peutFaireDecoupage(req)) {
+        return res.status(403).json({
+          message: "Accès refusé : la fonction de découpage est réservée au secrétariat de Difakpota."
+        });
+      }
+
+      const {
+        stock_id,
+        mesure_totale,
+        mesure_retiree,
+        nom_article_chute,
+        prix_vente_chute,
+        description
+      } = req.body;
+
+      const userId = obtenirUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Utilisateur introuvable." });
+      }
+
+      const siteId = req.user?.site_id || req.user?.site?._id || req.body.site_id;
+      if (!siteId) {
+        return res.status(400).json({ message: "Site introuvable." });
+      }
+
+      if (!stock_id) {
+        return res.status(400).json({ message: "Veuillez sélectionner un article à découper." });
+      }
+
+      const mTotale = parseFloat(String(mesure_totale).replace(',', '.'));
+      const mRetiree = parseFloat(String(mesure_retiree).replace(',', '.'));
+
+      if (isNaN(mTotale) || mTotale <= 0) {
+        return res.status(400).json({ message: "La mesure totale initiale doit être supérieure à 0." });
+      }
+
+      if (isNaN(mRetiree) || mRetiree <= 0) {
+        return res.status(400).json({ message: "La mesure retirée doit être supérieure à 0." });
+      }
+
+      if (mRetiree > mTotale) {
+        return res.status(400).json({ message: "La mesure retirée ne peut pas dépasser la mesure totale." });
+      }
+
+      const mRestante = Number((mTotale - mRetiree).toFixed(2));
+
+      // 1. Récupération de l'article source
+      const stockSource = await Stock.findOne({
+        id: stock_id,
+        site_id: siteId
+      });
+
+      if (!stockSource) {
+        return res.status(404).json({ message: "Article source introuvable dans le stock de votre agence." });
+      }
+
+      if (Number(stockSource.quantite) < 1) {
+        return res.status(400).json({ message: `Stock insuffisant pour "${stockSource.nom_article}" (Quantité disponible: ${stockSource.quantite}).` });
+      }
+
+      // 2. Décrémenter l'article source de 1
+      stockSource.quantite = Math.max(0, Number(stockSource.quantite) - 1);
+      await stockSource.save();
+
+      // 3. Mouvement de sortie découpage
+      const mouvementSortie = await StockMouvement.create({
+        stock_id: stockSource._id,
+        nom_article: stockSource.nom_article,
+        mouvement_type: 'decoupage',
+        type: 'decoupage',
+        type_entree: 'Pièce',
+        quantite_entree: 1,
+        quantite_unites: 1,
+        prix_vente_unitaire: Number(stockSource.prix_vente_unite) || Number(stockSource.prix_vente) || 0,
+        prix_total: 0,
+        seuil_alerte: stockSource.seuil_alerte,
+        user_id: userId,
+        site_id: siteId,
+        description: `Découpage : ${mRetiree}m retirés sur ${mTotale}m (Reste: ${mRestante}m). ${description ? description.trim() : ''}`.trim()
+      });
+
+      let nouveauStockChute = null;
+      let mouvementEntreeChute = null;
+
+      // 4. Si mesure restante > 0, enregistrer la chute dans le stock
+      if (mRestante > 0) {
+        const nomChute = String(nom_article_chute || `${stockSource.nom_article} - Reste ${mRestante}m`).trim();
+        const pVenteChute = Number(prix_vente_chute) || 0;
+
+        nouveauStockChute = new Stock({
+          nom_article: nomChute,
+          quantite: 1,
+          seuil_alerte: 1,
+          multiplicateur_gros: 1,
+          multiplicateur_detail: 1,
+          prix_vente: pVenteChute,
+          prix_vente_unite: pVenteChute,
+          prix_vente_detail: pVenteChute,
+          prix_vente_gros: pVenteChute,
+          site_id: siteId
+        });
+        await nouveauStockChute.save();
+
+        mouvementEntreeChute = await StockMouvement.create({
+          stock_id: nouveauStockChute._id,
+          nom_article: nomChute,
+          mouvement_type: 'entree',
+          type: 'entree',
+          type_entree: 'Pièce',
+          quantite_entree: 1,
+          quantite_unites: 1,
+          prix_vente_unitaire: pVenteChute,
+          prix_total: 0,
+          seuil_alerte: 1,
+          user_id: userId,
+          site_id: siteId,
+          description: `Chute issue du découpage de ${stockSource.nom_article} (${mRestante}m)`
+        });
+      }
+
+      // 5. Enregistrer l'activité dans le journal
+      const nomChuteDesc = nouveauStockChute ? nouveauStockChute.nom_article : `${stockSource.nom_article} (chute)`;
+      const activite = new Activite({
+        type: 'decoupage',
+        designation: `Découpage : ${stockSource.nom_article}`,
+        description: `${mRetiree}m découpés sur ${mTotale}m.` + (mRestante > 0 ? ` Reste enregistré : ${nomChuteDesc} (${mRestante}m à ${Number(prix_vente_chute).toLocaleString('fr-FR')} FCFA)` : ' Aucune chute restante.'),
+        quantite: 1,
+        quantite_unites: 1,
+        prix_unitaire: 0,
+        montant_total: 0,
+        site_id: siteId,
+        user_id: userId
+      });
+      await activite.save();
+
+      // 6. Socket.io
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('stock_mis_a_jour', stockSource);
+        if (nouveauStockChute) {
+          io.emit('stock_mis_a_jour', nouveauStockChute);
+        }
+        io.emit('stock_mouvement_ajoute', mouvementSortie);
+        if (mouvementEntreeChute) {
+          io.emit('stock_mouvement_ajoute', mouvementEntreeChute);
+        }
+        io.emit('activite_ajoutee', activite);
+      }
+
+      return res.status(201).json({
+        message: 'Découpage enregistré avec succès.',
+        stock_source: stockSource,
+        chute: nouveauStockChute,
+        mesure_totale: mTotale,
+        mesure_retiree: mRetiree,
+        mesure_restante: mRestante,
+        activite
+      });
+    } catch (error) {
+      console.error('Erreur découpage stock :', error);
+      return res.status(500).json({
+        message: error.message || 'Erreur lors du découpage du stock.'
       });
     }
   }

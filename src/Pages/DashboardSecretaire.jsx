@@ -6,6 +6,7 @@ import LogoutButton from '../components/LogoutButton';
 import InstallPwaButton from '../components/InstallPwaButton';
 import SaisieActivite from '../components/SaisieActivite';
 import SaisieStock from '../components/SaisieStock';
+import DecoupageStock from '../components/DecoupageStock';
 import CreditBanqueSection from '../components/CreditBanqueSection';
 import { getPermissionFlags } from '../config/permissions';
 import {
@@ -602,6 +603,22 @@ export default function DashboardSecretaire({ profil }) {
 
                 });
 
+              }}
+            />
+
+          )}
+
+          {flags.decoupage && (
+
+            <DecoupageStock
+              siteId={currentSiteId}
+              onDecoupageReussi={donnees => {
+                if (donnees?.activite) {
+                  setHistoriqueActivites(prev => [
+                    donnees.activite,
+                    ...prev
+                  ]);
+                }
               }}
             />
 

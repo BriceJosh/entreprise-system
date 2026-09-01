@@ -17,8 +17,7 @@ function estSecretaire(req) {
 
 function aPermission(req, permission) {
   return estDirecteur(req) || hasPermission(
-    req.user?.poste,
-    req.user?.role,
+    req.user,
     permission
   );
 }
@@ -61,6 +60,10 @@ function peutVoirJournalPropre(req) {
 
 function peutVoirCaissePropre(req) {
   return aPermission(req, PERMISSIONS.CAISSE_PROPRE);
+}
+
+function peutFaireDecoupage(req) {
+  return aPermission(req, PERMISSIONS.DECOUPAGE);
 }
 
 function peutFaireServiceType(req, serviceType) {
@@ -155,6 +158,7 @@ module.exports = {
   peutGererCredit,
   peutVoirJournalPropre,
   peutVoirCaissePropre,
+  peutFaireDecoupage,
   peutFaireServiceType,
   requirePermission,
   requireServices,
