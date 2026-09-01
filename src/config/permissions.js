@@ -155,12 +155,13 @@ export function getPermissions(profil) {
     ];
   }
 
-  // 2. Secrétaire 1 Difakpota -> Services + Vente + Découpage
+  // 2. Secrétaire 1 Difakpota -> Services + Vente + Stock + Découpage
   if (siteMotif === 'difakpota') {
     return [
       PERMISSIONS.ACTIVITE_SERVICE,
       PERMISSIONS.VENTE,
       PERMISSIONS.STOCK_LECTURE,
+      PERMISSIONS.STOCK_GESTION,
       PERMISSIONS.DECOUPAGE,
       PERMISSIONS.DEPENSE,
       PERMISSIONS.DEPOT_BANQUE,

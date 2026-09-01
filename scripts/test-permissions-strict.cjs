@@ -39,7 +39,7 @@ const profiles = [
   {
     name: 'Secrétaire 1 Difakpota',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Difakpota', ville: 'Difakpota' } },
-    mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.DECOUPAGE],
+    mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_GESTION, PERMISSIONS.DECOUPAGE],
     mustNotHave: [],
     expectedServices: ['photocopie', 'impression_papier_blanc_noir', 'impression_papier_couleur', 'impression_bache', 'impression_autocollant', 'autre_service']
   }

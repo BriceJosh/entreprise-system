@@ -974,6 +974,8 @@ router.post(
         stock_id,
         mesure_totale,
         mesure_retiree,
+        nom_article_retire,
+        prix_vente_retire,
         nom_article_chute,
         prix_vente_chute,
         description
@@ -1045,10 +1047,44 @@ router.post(
         description: `Découpage : ${mRetiree}m retirés sur ${mTotale}m (Reste: ${mRestante}m). ${description ? description.trim() : ''}`.trim()
       });
 
+      // 4. Enregistrer la partie retirée / découpée dans le stock
+      const nomRetire = String(nom_article_retire || `${stockSource.nom_article} - Découpe ${mRetiree}m`).trim();
+      const pVenteRetire = Number(prix_vente_retire) || 0;
+
+      const nouveauStockRetire = new Stock({
+        nom_article: nomRetire,
+        quantite: 1,
+        seuil_alerte: 1,
+        multiplicateur_gros: 1,
+        multiplicateur_detail: 1,
+        prix_vente: pVenteRetire,
+        prix_vente_unite: pVenteRetire,
+        prix_vente_detail: pVenteRetire,
+        prix_vente_gros: pVenteRetire,
+        site_id: siteId
+      });
+      await nouveauStockRetire.save();
+
+      const mouvementEntreeRetire = await StockMouvement.create({
+        stock_id: nouveauStockRetire._id,
+        nom_article: nomRetire,
+        mouvement_type: 'entree',
+        type: 'entree',
+        type_entree: 'Pièce',
+        quantite_entree: 1,
+        quantite_unites: 1,
+        prix_vente_unitaire: pVenteRetire,
+        prix_total: 0,
+        seuil_alerte: 1,
+        user_id: userId,
+        site_id: siteId,
+        description: `Partie découpée issue de ${stockSource.nom_article} (${mRetiree}m)`
+      });
+
       let nouveauStockChute = null;
       let mouvementEntreeChute = null;
 
-      // 4. Si mesure restante > 0, enregistrer la chute dans le stock
+      // 5. Si mesure restante > 0, enregistrer la chute / restant dans le stock
       if (mRestante > 0) {
         const nomChute = String(nom_article_chute || `${stockSource.nom_article} - Reste ${mRestante}m`).trim();
         const pVenteChute = Number(prix_vente_chute) || 0;
@@ -1080,16 +1116,18 @@ router.post(
           seuil_alerte: 1,
           user_id: userId,
           site_id: siteId,
-          description: `Chute issue du découpage de ${stockSource.nom_article} (${mRestante}m)`
+          description: `Reste issu du découpage de ${stockSource.nom_article} (${mRestante}m)`
         });
       }
 
-      // 5. Enregistrer l'activité dans le journal
-      const nomChuteDesc = nouveauStockChute ? nouveauStockChute.nom_article : `${stockSource.nom_article} (chute)`;
+      // 6. Enregistrer l'activité dans le journal
+      const detailsDesc = `${mRetiree}m découpés (${nomRetire} à ${pVenteRetire.toLocaleString('fr-FR')} FCFA)` +
+        (mRestante > 0 ? ` • ${mRestante}m restants (${nouveauStockChute?.nom_article} à ${Number(prix_vente_chute).toLocaleString('fr-FR')} FCFA)` : '');
+
       const activite = new Activite({
         type: 'decoupage',
         designation: `Découpage : ${stockSource.nom_article}`,
-        description: `${mRetiree}m découpés sur ${mTotale}m.` + (mRestante > 0 ? ` Reste enregistré : ${nomChuteDesc} (${mRestante}m à ${Number(prix_vente_chute).toLocaleString('fr-FR')} FCFA)` : ' Aucune chute restante.'),
+        description: detailsDesc,
         quantite: 1,
         quantite_unites: 1,
         prix_unitaire: 0,
@@ -1099,14 +1137,16 @@ router.post(
       });
       await activite.save();
 
-      // 6. Socket.io
+      // 7. Socket.io
       const io = req.app.get('io');
       if (io) {
         io.emit('stock_mis_a_jour', stockSource);
+        io.emit('stock_mis_a_jour', nouveauStockRetire);
         if (nouveauStockChute) {
           io.emit('stock_mis_a_jour', nouveauStockChute);
         }
         io.emit('stock_mouvement_ajoute', mouvementSortie);
+        io.emit('stock_mouvement_ajoute', mouvementEntreeRetire);
         if (mouvementEntreeChute) {
           io.emit('stock_mouvement_ajoute', mouvementEntreeChute);
         }
@@ -1116,7 +1156,8 @@ router.post(
       return res.status(201).json({
         message: 'Découpage enregistré avec succès.',
         stock_source: stockSource,
-        chute: nouveauStockChute,
+        article_retire: nouveauStockRetire,
+        article_chute: nouveauStockChute,
         mesure_totale: mTotale,
         mesure_retiree: mRetiree,
         mesure_restante: mRestante,

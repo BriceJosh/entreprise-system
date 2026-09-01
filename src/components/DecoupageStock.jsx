@@ -13,6 +13,8 @@ export default function DecoupageStock({
 
   const [mesureTotale, setMesureTotale] = useState('');
   const [mesureRetiree, setMesureRetiree] = useState('');
+  const [nomRetire, setNomRetire] = useState('');
+  const [prixVenteRetire, setPrixVenteRetire] = useState('');
   const [nomChute, setNomChute] = useState('');
   const [prixVenteChute, setPrixVenteChute] = useState('');
   const [description, setDescription] = useState('');
@@ -76,15 +78,21 @@ export default function DecoupageStock({
   }, [mesureTotale, mesureRetiree]);
 
   /*
-   * Mise à jour automatique de la suggestion du nom de la chute
+   * Mise à jour automatique des suggestions de noms pour la partie découpée et le restant
    */
   useEffect(() => {
+    if (stockSelectionne && mRetiree > 0) {
+      setNomRetire(`${stockSelectionne.nom_article} - Découpe ${mRetiree}m`);
+    } else {
+      setNomRetire('');
+    }
+
     if (stockSelectionne && mRestante > 0) {
       setNomChute(`${stockSelectionne.nom_article} - Reste ${mRestante}m`);
     } else {
       setNomChute('');
     }
-  }, [stockSelectionne, mRestante]);
+  }, [stockSelectionne, mRetiree, mRestante]);
 
   /*
    * =========================================================
@@ -113,6 +121,14 @@ export default function DecoupageStock({
       return;
     }
 
+    if (!prixVenteRetire || Number(prixVenteRetire) <= 0) {
+      setMessage({
+        type: 'error',
+        text: 'Veuillez renseigner le prix de vente pour la partie retirée / découpée.'
+      });
+      return;
+    }
+
     if (mRestante > 0 && (!prixVenteChute || Number(prixVenteChute) <= 0)) {
       setMessage({
         type: 'error',
@@ -134,6 +150,8 @@ export default function DecoupageStock({
           stock_id: stockSelectionne._id || stockSelectionne.id,
           mesure_totale: mTotale,
           mesure_retiree: mRetiree,
+          nom_article_retire: nomRetire.trim(),
+          prix_vente_retire: Number(prixVenteRetire) || 0,
           nom_article_chute: nomChute.trim(),
           prix_vente_chute: Number(prixVenteChute) || 0,
           description: description.trim(),
@@ -156,6 +174,8 @@ export default function DecoupageStock({
       setStockIdChoisi('');
       setMesureTotale('');
       setMesureRetiree('');
+      setNomRetire('');
+      setPrixVenteRetire('');
       setNomChute('');
       setPrixVenteChute('');
       setDescription('');
@@ -309,11 +329,53 @@ export default function DecoupageStock({
           </div>
         )}
 
-        {/* 3. CONFIGURATION DE LA CHUTE / MESURE RESTANTE */}
+        {/* 3. ENREGISTREMENT DE LA PARTIE RETIREE / DECOUPEE DANS LE STOCK */}
+        {stockSelectionne && estValideMesures && mRetiree > 0 && (
+          <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
+            <h3 className="text-xs font-bold text-blue-950 uppercase tracking-wider">
+              1. Enregistrement de la partie découpée ({mRetiree} m)
+            </h3>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                Nom de l'article découpé dans le stock
+              </label>
+              <input
+                type="text"
+                value={nomRetire}
+                onChange={e => setNomRetire(e.target.value)}
+                className="w-full p-2.5 rounded-lg border border-blue-200 bg-white text-sm font-semibold text-gray-800"
+                placeholder="Ex: Bâche 440g - Découpe 15m"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                Prix de vente de la partie découpée (FCFA)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={prixVenteRetire}
+                onChange={e => setPrixVenteRetire(e.target.value)}
+                className="w-full p-2.5 rounded-lg border border-blue-200 bg-white text-sm font-bold text-blue-950"
+                placeholder="Ex: 8000"
+                required
+              />
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                Prix de vente configuré pour la partie découpée dans le stock.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 4. CONFIGURATION DE LA CHUTE / MESURE RESTANTE */}
         {stockSelectionne && estValideMesures && mRestante > 0 && (
           <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-3">
             <h3 className="text-xs font-bold text-purple-950 uppercase tracking-wider">
-              Enregistrement du restant dans le stock
+              2. Enregistrement du restant / chute ({mRestante} m)
             </h3>
 
             <div>
@@ -345,13 +407,13 @@ export default function DecoupageStock({
                 required
               />
               <p className="text-[10px] text-gray-500 mt-0.5">
-                Ce montant sera le prix de vente configuré pour ce nouvel article dans le stock.
+                Prix de vente configuré pour le restant dans le stock.
               </p>
             </div>
           </div>
         )}
 
-        {/* 4. NOTE / DESCRIPTION FACULTATIVE */}
+        {/* 5. NOTE / DESCRIPTION FACULTATIVE */}
         {stockSelectionne && (
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">
@@ -367,11 +429,11 @@ export default function DecoupageStock({
           </div>
         )}
 
-        {/* 5. BOUTON DE VALIDATION */}
+        {/* 6. BOUTON DE VALIDATION */}
         {stockSelectionne && (
           <button
             type="submit"
-            disabled={submitting || !estValideMesures || (mRestante > 0 && !prixVenteChute)}
+            disabled={submitting || !estValideMesures || !prixVenteRetire || (mRestante > 0 && !prixVenteChute)}
             className="w-full py-3 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer shadow-sm"
           >
             {submitting ? 'Traitement en cours...' : 'Valider le découpage'}
