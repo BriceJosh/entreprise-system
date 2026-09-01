@@ -1028,8 +1028,8 @@ export default function SaisieActivite({
             {isServiceGrandFormat && (
               <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-900 flex items-center gap-1">
-                    📐 Dimensions de l'impression (au m²)
+                  <span className="text-xs font-bold text-blue-900">
+                    Dimensions de l'impression (au m²)
                   </span>
                   {surfaceCalculee > 0 && (
                     <span className="text-xs bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full">
@@ -1087,7 +1087,7 @@ export default function SaisieActivite({
                 {/* Choix Conception Graphique */}
                 <div className="pt-2 border-t border-blue-200">
                   <label className="block text-xs font-bold text-blue-950 mb-2">
-                    🎨 La conception a-t-elle été faite avec l'impression ?
+                    La conception a-t-elle été faite avec l'impression ?
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -1102,7 +1102,7 @@ export default function SaisieActivite({
                           : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                       }`}
                     >
-                      <span>❌ Non</span>
+                      <span>Non</span>
                     </button>
                     <button
                       type="button"
@@ -1113,7 +1113,7 @@ export default function SaisieActivite({
                           : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                       }`}
                     >
-                      <span>🎨 Oui (avec conception)</span>
+                      <span>Oui (avec conception)</span>
                     </button>
                   </div>
 
@@ -1420,8 +1420,8 @@ export default function SaisieActivite({
           <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3 mt-4 shadow-sm">
 
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                <span>🧾</span> Reçu en cours ({panier.length} ligne{panier.length > 1 ? 's' : ''})
+              <p className="text-xs font-bold text-blue-900">
+                Reçu en cours ({panier.length} ligne{panier.length > 1 ? 's' : ''})
               </p>
 
               <button
@@ -1447,7 +1447,7 @@ export default function SaisieActivite({
                       <div className="text-[11px] text-blue-600 font-normal">
                         Service • {ligne.quantite} ex.
                         {ligne.surface_m2 ? ` • Dim: ${ligne.longueur}m × ${ligne.largeur}m (${ligne.surface_m2} m²)` : ''}
-                        {ligne.prix_conception ? ` • 🎨 Conception: +${ligne.prix_conception.toLocaleString('fr-FR')} F` : ''}
+                        {ligne.prix_conception ? ` • Conception: +${ligne.prix_conception.toLocaleString('fr-FR')} F` : ''}
                         {ligne.description ? ` • ${ligne.description}` : ''}
                       </div>
                     ) : (

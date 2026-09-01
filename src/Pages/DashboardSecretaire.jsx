@@ -36,7 +36,6 @@ export default function DashboardSecretaire({ profil }) {
   const [historiqueActivites, setHistoriqueActivites] = useState([]);
   const [loading, setLoading] = useState(() => Boolean(token && currentSiteId));
   const [afficherJournal, setAfficherJournal] = useState(false);
-  const [masquerChiffres, setMasquerChiffres] = useState(false);
 
   /*
    * =========================================================
@@ -413,16 +412,6 @@ export default function DashboardSecretaire({ profil }) {
 
           <div className="flex items-center gap-3">
 
-            <button
-              type="button"
-              onClick={() => setMasquerChiffres(prev => !prev)}
-              className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title={masquerChiffres ? "Afficher les montants" : "Masquer les montants (Mode discret)"}
-            >
-              <span>{masquerChiffres ? '👁️' : '🙈'}</span>
-              <span className="hidden sm:inline">{masquerChiffres ? 'Afficher les montants' : 'Mode discret'}</span>
-            </button>
-
             <InstallPwaButton role="secretaire" />
 
             <Link
@@ -475,7 +464,7 @@ export default function DashboardSecretaire({ profil }) {
             </p>
 
             <p className="text-2xl font-black text-emerald-600 mt-2">
-              {masquerChiffres ? '•••••• FCFA' : `${recettes.toLocaleString()} FCFA`}
+              {recettes.toLocaleString()} FCFA
             </p>
 
           </div>
@@ -487,7 +476,7 @@ export default function DashboardSecretaire({ profil }) {
             </p>
 
             <p className="text-2xl font-black text-red-600 mt-2">
-              {masquerChiffres ? '•••••• FCFA' : `${depenses.toLocaleString()} FCFA`}
+              {depenses.toLocaleString()} FCFA
             </p>
 
           </div>
@@ -499,7 +488,7 @@ export default function DashboardSecretaire({ profil }) {
             </p>
 
             <p className="text-2xl font-black text-gray-900 mt-2">
-              {masquerChiffres ? '•••••• FCFA' : `${(recettes - depenses).toLocaleString()} FCFA`}
+              {(recettes - depenses).toLocaleString()} FCFA
             </p>
 
           </div>
@@ -732,58 +721,43 @@ export default function DashboardSecretaire({ profil }) {
         )}
 
         {/* ===================================================
-            JOURNAL / MA CAISSE (Replié par défaut - Accordéon)
+            JOURNAL DE CAISSE (Replié par défaut - Accordéon)
             =================================================== */}
 
         {flags.journal && (
 
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all">
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-            <div
+            <button
+              type="button"
               onClick={() => setAfficherJournal(prev => !prev)}
-              className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-gray-50/70 transition-colors select-none"
+              className="w-full p-5 sm:p-6 flex items-center justify-between gap-4 text-left hover:bg-gray-50/70 transition-colors cursor-pointer select-none"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center text-lg shrink-0 font-bold">
-                  📒
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-base sm:text-lg font-black text-gray-800">
+                    Journal de caisse
+                  </h2>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                    {activitesDuJour.length} opération{activitesDuJour.length > 1 ? 's' : ''} aujourd'hui
+                  </span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-black text-gray-800">
-                      Mon journal / ma caisse
-                    </h2>
-                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                      {activitesDuJour.length} opération{activitesDuJour.length > 1 ? 's' : ''} aujourd'hui
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {afficherJournal
-                      ? 'Cliquez pour replier le tableau des opérations de caisse'
-                      : 'Tableau masqué par défaut • Cliquez pour afficher le détail'}
-                  </p>
-                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  {afficherJournal
+                    ? 'Cliquez pour replier le journal'
+                    : 'Tableau replié • Cliquez pour afficher le détail des opérations'}
+                </p>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setAfficherJournal(prev => !prev);
-                  }}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    afficherJournal
-                      ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                      : 'bg-gray-900 text-white shadow-xs hover:bg-gray-800'
-                  }`}
-                >
-                  <span>{afficherJournal ? '🙈 Masquer le tableau' : '👁️ Afficher le tableau'}</span>
-                  <span className={`inline-block transition-transform duration-200 ${afficherJournal ? 'rotate-180' : ''}`}>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1.5 transition-colors">
+                  <span>{afficherJournal ? 'Masquer' : 'Afficher'}</span>
+                  <span className={`text-[10px] transform transition-transform duration-200 ${afficherJournal ? 'rotate-180' : ''}`}>
                     ▼
                   </span>
-                </button>
+                </span>
               </div>
-            </div>
+            </button>
 
             {afficherJournal && (
               <div className="px-5 pb-6 sm:px-6 pt-2 border-t border-gray-100">
@@ -828,7 +802,7 @@ export default function DashboardSecretaire({ profil }) {
 
                 <div className="overflow-x-auto rounded-xl border border-gray-100">
                   <table className="w-full text-left text-xs text-gray-500">
-                    <thead className="bg-gray-50 text-gray-700 uppercase">
+                    <thead className="bg-gray-50 text-gray-700 uppercase font-bold">
                       <tr>
                         <th className="p-3">Heure</th>
                         <th className="p-3">Désignation</th>
@@ -868,14 +842,14 @@ export default function DashboardSecretaire({ profil }) {
                               </div>
                               {act.longueur != null && act.largeur != null && Number(act.longueur) > 0 && Number(act.largeur) > 0 && (
                                 <div className="text-[11px] font-normal text-blue-600 mt-0.5">
-                                  📐 {act.longueur}m × {act.largeur}m ({act.surface_m2 || (act.longueur * act.largeur).toFixed(2)} m²)
+                                  Dim: {act.longueur}m × {act.largeur}m ({act.surface_m2 || (act.longueur * act.largeur).toFixed(2)} m²)
                                   {act.prix_m2 ? ` à ${Number(act.prix_m2).toLocaleString()} F/m²` : ''}
-                                  {act.prix_conception && Number(act.prix_conception) > 0 ? ` • 🎨 Conception: +${Number(act.prix_conception).toLocaleString()} F` : ''}
+                                  {act.prix_conception && Number(act.prix_conception) > 0 ? ` • Conception: +${Number(act.prix_conception).toLocaleString()} F` : ''}
                                 </div>
                               )}
                               {act.prix_conception && Number(act.prix_conception) > 0 && (!act.longueur || !act.largeur) && (
                                 <div className="text-[11px] font-semibold text-blue-600 mt-0.5">
-                                  🎨 Conception: +{Number(act.prix_conception).toLocaleString()} FCFA
+                                  Conception: +{Number(act.prix_conception).toLocaleString()} FCFA
                                 </div>
                               )}
                               {act.description && (!act.longueur || !act.largeur) && (
@@ -898,7 +872,7 @@ export default function DashboardSecretaire({ profil }) {
                               estDepense ? 'text-red-600' : 'text-emerald-700'
                             }`}>
                               {estDepense ? '-' : '+'}
-                              {masquerChiffres ? '••••••' : `${montant.toLocaleString()} FCFA`}
+                              {montant.toLocaleString()} FCFA
                             </td>
                           </tr>
                         );

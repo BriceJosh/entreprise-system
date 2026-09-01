@@ -579,7 +579,7 @@ export default function Historique({ profil }) {
                 disabled={Boolean(exporting) || !operations.length}
                 className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white disabled:opacity-50 text-xs font-bold transition-all shadow-sm cursor-pointer"
               >
-                {exporting === 'excel' ? 'Génération...' : '📊 Export Excel'}
+                {exporting === 'excel' ? 'Génération...' : 'Export Excel'}
               </button>
               <button
                 type="button"
@@ -587,7 +587,7 @@ export default function Historique({ profil }) {
                 disabled={Boolean(exporting) || !operations.length}
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 text-xs font-bold transition-all shadow-sm cursor-pointer"
               >
-                {exporting === 'pdf' ? 'Génération...' : '📄 Export PDF'}
+                {exporting === 'pdf' ? 'Génération...' : 'Export PDF'}
               </button>
             </div>
           </div>
@@ -645,14 +645,14 @@ export default function Historique({ profil }) {
                       </div>
                       {operation.longueur != null && operation.largeur != null && Number(operation.longueur) > 0 && Number(operation.largeur) > 0 && (
                         <div className="text-[10px] font-semibold text-blue-600 mt-0.5">
-                          📐 {operation.longueur}m × {operation.largeur}m ({operation.surface_m2 || (operation.longueur * operation.largeur).toFixed(2)} m²)
+                          Dim: {operation.longueur}m × {operation.largeur}m ({operation.surface_m2 || (operation.longueur * operation.largeur).toFixed(2)} m²)
                           {operation.prix_m2 ? ` • ${Number(operation.prix_m2).toLocaleString('fr-FR')} F/m²` : ''}
-                          {operation.prix_conception && Number(operation.prix_conception) > 0 ? ` • 🎨 Conception: +${Number(operation.prix_conception).toLocaleString('fr-FR')} F` : ''}
+                          {operation.prix_conception && Number(operation.prix_conception) > 0 ? ` • Conception: +${Number(operation.prix_conception).toLocaleString('fr-FR')} F` : ''}
                         </div>
                       )}
                       {operation.prix_conception && Number(operation.prix_conception) > 0 && (!operation.longueur || !operation.largeur) && (
                         <div className="text-[10px] font-semibold text-blue-600 mt-0.5">
-                          🎨 Conception: +{Number(operation.prix_conception).toLocaleString('fr-FR')} FCFA
+                          Conception: +{Number(operation.prix_conception).toLocaleString('fr-FR')} FCFA
                         </div>
                       )}
                       {operation.description && (!operation.longueur || !operation.largeur) && (
