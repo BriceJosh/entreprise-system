@@ -35,6 +35,7 @@ export default function DashboardSecretaire({ profil }) {
   const [stocks, setStocks] = useState([]);
   const [historiqueActivites, setHistoriqueActivites] = useState([]);
   const [loading, setLoading] = useState(() => Boolean(token && currentSiteId));
+  const [afficherStatistiques, setAfficherStatistiques] = useState(false);
   const [afficherJournal, setAfficherJournal] = useState(false);
 
   /*
@@ -452,48 +453,74 @@ export default function DashboardSecretaire({ profil }) {
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
 
         {/* ===================================================
-            STATISTIQUES
+            STATISTIQUES DE CAISSE (Replié par défaut - Accordéon)
             =================================================== */}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAfficherStatistiques(prev => !prev)}
+            className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left hover:bg-gray-50/70 transition-colors cursor-pointer select-none"
+          >
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-base sm:text-lg font-black text-gray-800">
+                  Statistiques de caisse
+                </h2>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                  Aujourd'hui
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {afficherStatistiques
+                  ? 'Cliquez pour replier les statistiques de la journée'
+                  : 'Statistiques repliées • Cliquez pour afficher les recettes et dépenses'}
+              </p>
+            </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1.5 transition-colors">
+                <span>{afficherStatistiques ? 'Masquer' : 'Afficher'}</span>
+                <span className={`text-[10px] transform transition-transform duration-200 ${afficherStatistiques ? 'rotate-180' : ''}`}>
+                  ▼
+                </span>
+              </span>
+            </div>
+          </button>
 
-            <p className="text-xs text-gray-400 font-bold uppercase">
-              Recettes du jour
-            </p>
+          {afficherStatistiques && (
+            <div className="p-5 pt-2 border-t border-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="bg-gray-50/80 rounded-xl border border-gray-100 p-5">
+                  <p className="text-xs text-gray-500 font-bold uppercase">
+                    Recettes du jour
+                  </p>
+                  <p className="text-2xl font-black text-emerald-600 mt-2">
+                    {recettes.toLocaleString()} FCFA
+                  </p>
+                </div>
 
-            <p className="text-2xl font-black text-emerald-600 mt-2">
-              {recettes.toLocaleString()} FCFA
-            </p>
+                <div className="bg-gray-50/80 rounded-xl border border-gray-100 p-5">
+                  <p className="text-xs text-gray-500 font-bold uppercase">
+                    Dépenses du jour
+                  </p>
+                  <p className="text-2xl font-black text-red-600 mt-2">
+                    {depenses.toLocaleString()} FCFA
+                  </p>
+                </div>
 
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-
-            <p className="text-xs text-gray-400 font-bold uppercase">
-              Dépenses du jour
-            </p>
-
-            <p className="text-2xl font-black text-red-600 mt-2">
-              {depenses.toLocaleString()} FCFA
-            </p>
-
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-
-            <p className="text-xs text-gray-400 font-bold uppercase">
-              Solde personnel
-            </p>
-
-            <p className="text-2xl font-black text-gray-900 mt-2">
-              {(recettes - depenses).toLocaleString()} FCFA
-            </p>
-
-          </div>
-
-        </div>
+                <div className="bg-gray-50/80 rounded-xl border border-gray-100 p-5">
+                  <p className="text-xs text-gray-500 font-bold uppercase">
+                    Solde personnel
+                  </p>
+                  <p className="text-2xl font-black text-gray-900 mt-2">
+                    {(recettes - depenses).toLocaleString()} FCFA
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* ===================================================
             SAISIE ACTIVITÉ / STOCK
