@@ -861,6 +861,14 @@ export default function DashboardSecretaire({ profil }) {
                       {activitesAffichees.map(act => {
                         const estDepense = act.type === 'depense';
                         const estVente = act.type === 'vente';
+                        const estDecoupage = act.type === 'decoupage';
+                        const typeLibelle = estDepense
+                          ? 'Dépense'
+                          : estVente
+                            ? 'Vente'
+                            : estDecoupage
+                              ? 'Découpage'
+                              : 'Service';
                         const montant = Number(
                           act.montant_total ??
                           act.montant ??
@@ -909,9 +917,15 @@ export default function DashboardSecretaire({ profil }) {
                             </td>
                             <td className="p-3 text-center">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                estDepense ? 'bg-red-50 text-red-700' : estVente ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                                estDepense
+                                  ? 'bg-red-50 text-red-700'
+                                  : estVente
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : estDecoupage
+                                      ? 'bg-purple-50 text-purple-700'
+                                      : 'bg-blue-50 text-blue-700'
                               }`}>
-                                {estDepense ? 'Dépense' : act.type}
+                                {typeLibelle}
                               </span>
                             </td>
                             <td className={`p-3 text-right font-black whitespace-nowrap ${
