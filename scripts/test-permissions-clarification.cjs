@@ -20,7 +20,7 @@ const testCases = [
   {
     nom: 'Secrétaire 4 Tabligbo',
     user: { poste: 'secretaire_4', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
-    attendu: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'autre_service']
+    attendu: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'photocopie', 'saisie', 'scanner', 'autre_service']
   },
   {
     nom: 'Secrétaire 1 Difakpota',

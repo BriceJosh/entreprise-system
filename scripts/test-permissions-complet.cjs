@@ -27,6 +27,14 @@ const tests = [
     servicesCount: 0
   },
   {
+    nom: 'Secrétaire 4 Tabligbo',
+    user: { poste: 'secretaire_4', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
+    doitAvoirService: true,
+    doitAvoirVente: true,
+    doitAvoirStock: true,
+    servicesCount: 6
+  },
+  {
     nom: 'Secrétaire 1 Adétikopé',
     user: { poste: 'secretaire_1', site: { nom: 'Agence Adétikopé', ville: 'Adétikopé' } },
     doitAvoirService: true,

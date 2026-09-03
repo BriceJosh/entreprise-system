@@ -27,7 +27,7 @@ const profiles = [
     user: { poste: 'secretaire_4', site: { nom: 'Agence Tabligbo', ville: 'Tabligbo' } },
     mustHave: [PERMISSIONS.ACTIVITE_SERVICE, PERMISSIONS.VENTE, PERMISSIONS.STOCK_LECTURE, PERMISSIONS.STOCK_PAPIER_GESTION],
     mustNotHave: [PERMISSIONS.DECOUPAGE],
-    expectedServices: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'autre_service']
+    expectedServices: ['impression_papier_blanc_noir', 'impression_papier_couleur', 'photocopie', 'saisie', 'scanner', 'autre_service']
   },
   {
     name: 'Secrétaire 1 Adétikopé',
